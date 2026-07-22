@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+ecommerce-frontend/node_modules/
+
+# Build & Test outputs
+ecommerce-frontend/build/
+ecommerce-frontend/dist/
+ecommerce-frontend/test-results/
+bin/
+obj/
+**/bin/
+**/obj/
+
+# IDE & Editor
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.idea/
+
+# Environment & local settings
+.env
+.env.local
+.env.*.local
+*.pem
+
+# Temporary files
+docx_output.txt
+inspect_bytes.py
+inspect_file.py
+read_docx.py
+
+# OS metadata
+.DS_Store
+Thumbs.db
