@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import Button from '../components/Button';
 import Spinner from '../components/Spinner';
+import SEO from '../components/SEO';
 import { productsApi, recommendationsApi } from '../utils/api';
 
 const HomePage = ({ addToCart, user }) => {
@@ -48,7 +49,11 @@ const HomePage = ({ addToCart, user }) => {
   }, [user]);
 
   return (
-    <div>
+    <div className="bg-background min-h-screen font-sans">
+      <SEO 
+        title="Trang chủ" 
+        description="TechStore cung cấp các thiết bị công nghệ hàng đầu, chính hãng với dịch vụ giao hàng nhanh chóng."
+      />
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-primary-600 to-primary-500 text-white py-12 md:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

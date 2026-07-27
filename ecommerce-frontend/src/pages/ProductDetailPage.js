@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import Spinner from '../components/Spinner';
+import SEO from '../components/SEO';
 import { productsApi, reviewsApi, wishlistApi, recommendationsApi, questionsApi } from '../utils/api';
 import { formatPrice } from '../utils/formatPrice';
 
@@ -171,6 +172,11 @@ const ProductDetailPage = ({ addToCart, user }) => {
 
   return (
     <div className="bg-background min-h-screen py-8">
+      <SEO 
+        title={product.name} 
+        description={product.description?.substring(0, 160)}
+        image={product.image || product.imageUrl}
+      />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <div className="mb-8 flex items-center space-x-2 text-sm">

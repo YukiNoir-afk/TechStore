@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import Button from '../components/Button';
 import Spinner from '../components/Spinner';
+import SEO from '../components/SEO';
 import { productsApi, categoriesApi } from '../utils/api';
 import { formatPrice } from '../utils/formatPrice';
 
@@ -59,6 +60,10 @@ const ProductsPage = ({ addToCart }) => {
 
   return (
     <div className="bg-background min-h-screen py-8">
+      <SEO 
+        title={searchQuery ? `Tìm kiếm: ${searchQuery}` : selectedCategory !== 'all' ? `Danh mục ${categories.find(c => c.id === selectedCategory)?.name || ''}` : 'Sản phẩm'}
+        description="Khám phá hàng ngàn sản phẩm công nghệ chất lượng cao tại TechStore."
+      />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold font-heading text-text-primary mb-2">

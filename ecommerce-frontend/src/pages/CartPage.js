@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../components/Button';
+import SEO from '../components/SEO';
 import { formatPrice } from '../utils/formatPrice';
 
 const CartPage = ({ cartItems, removeFromCart, updateCartQuantity, user }) => {
@@ -12,6 +13,7 @@ const CartPage = ({ cartItems, removeFromCart, updateCartQuantity, user }) => {
   if (!cartItems.length) {
     return (
       <div className="bg-background min-h-screen py-12">
+        <SEO title="Giỏ hàng" description="Xem và quản lý các sản phẩm trong giỏ hàng của bạn." />
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-lg shadow-md p-12 text-center">
             <div className="text-6xl mb-6">🛒</div>
@@ -26,6 +28,7 @@ const CartPage = ({ cartItems, removeFromCart, updateCartQuantity, user }) => {
 
   return (
     <div className="bg-background min-h-screen py-8">
+      <SEO title={`Giỏ hàng (${cartItems.length})`} description="Xem và quản lý các sản phẩm trong giỏ hàng của bạn." />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="text-4xl font-bold font-heading text-text-primary mb-8">Giỏ hàng ({cartItems.length})</h1>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
