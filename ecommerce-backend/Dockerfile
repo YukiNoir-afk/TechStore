@@ -15,6 +15,9 @@ WORKDIR /app
 COPY --from=build /app/publish .
 
 ENV ASPNETCORE_URLS=http://+:8080
+ENV DOTNET_gcServer=0
+ENV DOTNET_TieredPGO=0
+ENV DOTNET_TieredCompilation=0
 EXPOSE 8080
 
 ENTRYPOINT ["dotnet", "EcommerceApi.dll"]

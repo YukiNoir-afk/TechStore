@@ -1,4 +1,4 @@
 @echo off
-set ROOT=%~dp0
+set "ROOT=%~dp0"
 cd /d "%ROOT%ecommerce-backend"
-dotnet run --project .\EcommerceApi\EcommerceApi.csproj
+dotnet run --project EcommerceApi\EcommerceApi.csproj
