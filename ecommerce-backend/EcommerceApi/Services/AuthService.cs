@@ -30,6 +30,10 @@ public class AuthService
             LastName = request.LastName
         };
         await _db.Users.InsertOneAsync(user);
+
+        // Send Welcome Email
+        _ = _emailService.SendWelcomeEmailAsync(user);
+
         return new LoginResponse { Token = GenerateToken(user), User = MapUser(user) };
     }
 

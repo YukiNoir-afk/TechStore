@@ -24,7 +24,15 @@ public class EmailService
         await SendAsync(user.Email, $"{user.FirstName} {user.LastName}", subject, body);
     }
 
-    // ── Password Reset ──────────────────────────────────────────────────
+    // ── Welcome Email ──────────────────────────────────────────────────────────
+    public async Task SendWelcomeEmailAsync(User user)
+    {
+        var subject = "🎉 Chào mừng bạn đến với TechStore";
+        var body = BuildWelcomeEmailHtml(user);
+        await SendAsync(user.Email, $"{user.FirstName} {user.LastName}", subject, body);
+    }
+
+    // ── Password Reset ─────────────────────────────────────────────────────────
     public async Task SendPasswordResetAsync(User user, string token)
     {
         var subject = "🔑 Đặt lại mật khẩu – TechStore";
@@ -58,16 +66,16 @@ public class EmailService
         await SendAsync(user.Email, $"{user.FirstName} {user.LastName}", subject, body);
     }
 
-    // ── Check if email is configured ────────────────────────────────────
+    // ── Check if email is configured ───────────────────────────────────────────
     public bool IsConfigured()
     {
         var fromEmail = _config["Email:From"];
         var password = _config["Email:Password"];
-        return !string.IsNullOrEmpty(fromEmail) && !fromEmail.Contains("your-email") &&
-               !string.IsNullOrEmpty(password) && !password.Contains("your-gmail");
+        return !string.IsNullOrEmpty(fromEmail) && !fromEmail.Contains("your-email", StringComparison.OrdinalIgnoreCase) &&
+               !string.IsNullOrEmpty(password) && !password.Contains("your-gmail", StringComparison.OrdinalIgnoreCase);
     }
 
-    // ── Core Send ───────────────────────────────────────────────────────
+    // ── Core Send ──────────────────────────────────────────────────────────────
     private async Task SendAsync(string toEmail, string toName, string subject, string htmlBody)
     {
         var smtpHost = _config["Email:SmtpHost"];
@@ -77,8 +85,8 @@ public class EmailService
         var displayName = _config["Email:DisplayName"] ?? "TechStore";
 
         // Skip if not configured
-        if (string.IsNullOrEmpty(fromEmail) || fromEmail.Contains("your-email") ||
-            string.IsNullOrEmpty(password) || password.Contains("your-gmail"))
+        if (string.IsNullOrEmpty(fromEmail) || fromEmail.Contains("your-email", StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrEmpty(password) || password.Contains("your-gmail", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogWarning("Email not configured – skipping send to {Email}. Subject: {Subject}", toEmail, subject);
             return;
@@ -108,6 +116,52 @@ public class EmailService
     }
 
     // ── HTML Templates ──────────────────────────────────────────────────
+        return $@"<!DOCTYPE html>
+<html lang='vi'>
+<head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'></head>
+<body style='margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;'>
+  <table width='100%' cellpadding='0' cellspacing='0' style='background:#f5f5f5;padding:40px 0;'>
+    <tr><td align='center'>
+      <table width='600' cellpadding='0' cellspacing='0' style='background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);'>
+        <!-- Header -->
+        <tr><td style='background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:32px;text-align:center;'>
+          <h1 style='color:#fff;margin:0;font-size:28px;letter-spacing:-0.5px;'>🛒 TechStore</h1>
+          <p style='color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:15px;'>Chào mừng bạn gia nhập!</p>
+        </td></tr>
+
+        <!-- Body -->
+        <tr><td style='padding:32px;'>
+          <h2 style='color:#1e293b;margin:0 0 8px;font-size:22px;'>Xin chào, {user.FirstName}! 👋</h2>
+          <p style='color:#64748b;margin:0 0 24px;line-height:1.6;'>Cảm ơn bạn đã đăng ký tài khoản tại TechStore. Chúng tôi rất vui mừng được đồng hành cùng bạn trên hành trình mua sắm sắp tới.</p>
+
+          <!-- Info Box -->
+          <table width='100%' cellpadding='0' cellspacing='0' style='background:#f8faff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:24px;'>
+            <tr><td style='padding:16px;'>
+              <p style='color:#1e293b;margin:0;font-size:14px;'>Khám phá hàng ngàn sản phẩm công nghệ mới nhất với ưu đãi đặc biệt dành riêng cho thành viên.</p>
+            </td></tr>
+          </table>
+
+          <!-- CTA Button -->
+          <div style='text-align:center;margin:32px 0;'>
+            <a href='http://localhost:3000/products'
+               style='display:inline-block;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;padding:16px 40px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px;'>
+              🚀 Bắt đầu mua sắm ngay
+            </a>
+          </div>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style='background:#f8faff;padding:24px;text-align:center;border-top:1px solid #e2e8f0;'>
+          <p style='color:#94a3b8;font-size:13px;margin:0;'>© 2024 TechStore — Trải nghiệm công nghệ đỉnh cao</p>
+          <p style='color:#94a3b8;font-size:12px;margin:8px 0 0;'>Nếu có thắc mắc, hãy liên hệ: support@techstore.com</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>";
+    }
+
     private static string BuildOrderConfirmationHtml(Order order, User user)
     {
         var itemsHtml = string.Join("", order.Items.Select(item => $@"
