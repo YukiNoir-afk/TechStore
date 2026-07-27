@@ -278,10 +278,6 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
   };
 
   const handlePlaceOrder = async (paymentIntentId = null) => {
-    if (!user) {
-      setError('Vui lòng đăng nhập để đặt hàng');
-      return;
-    }
     setIsLoading(true);
     setError('');
     try {
@@ -299,6 +295,7 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
         paymentIntentId,
         promoCode: promoApplied?.isVoucher ? null : (promoApplied?.code || null),
         voucherCode: promoApplied?.isVoucher ? promoApplied.code : null,
+        guestItems: !user ? cartItems.map(i => ({ productId: i.id || i.productId, quantity: i.quantity })) : null
       });
 
       if (formData.paymentMethod === 'momo_qr') {
@@ -310,6 +307,9 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
         const momoRes = await paymentsApi.createMomoPayment(res.data.id, 'payWithATM');
         window.location.href = momoRes.data.payUrl;
       } else {
+        if (!user) {
+          localStorage.removeItem('guestCart');
+        }
         if (onOrderPlaced) onOrderPlaced();
         // Stripe and COD
         navigate(`/order-confirmation/${res.data.id}`);

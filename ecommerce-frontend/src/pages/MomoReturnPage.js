@@ -19,6 +19,7 @@ const MomoReturnPage = () => {
 
     if (resultCode === '0') {
       setStatus('success');
+      localStorage.removeItem('guestCart');
       // Tự động chuyển hướng về trang xác nhận đơn hàng sau 3 giây
       const timer = setTimeout(() => {
         navigate(`/order-confirmation/${orderId}`);

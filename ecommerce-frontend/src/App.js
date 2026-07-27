@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
@@ -53,30 +55,68 @@ function App() {
   }, []);
 
   const fetchCart = useCallback(async () => {
+    if (!user) {
+      const localCart = JSON.parse(localStorage.getItem('guestCart')) || [];
+      setCartItems(localCart);
+      setCartCount(localCart.reduce((sum, item) => sum + item.quantity, 0));
+      return;
+    }
     try {
       const res = await cartApi.get();
       setCartItems(res.data.items || []);
       setCartCount(res.data.itemCount || 0);
     } catch (err) {
-      console.log('Cart fetch failed (not logged in?)');
+      console.log('Cart fetch failed');
     }
-  }, []);
+  }, [user]);
+
+  useEffect(() => {
+    fetchCart();
+  }, [user, fetchCart]);
 
   const addToCart = async (product) => {
     if (!user) {
-      alert('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng');
+      const currentCart = JSON.parse(localStorage.getItem('guestCart')) || [];
+      const productId = product.id || product.productId;
+      const existingItem = currentCart.find(i => (i.id || i.productId) === productId);
+      
+      if (existingItem) {
+        existingItem.quantity += 1;
+      } else {
+        currentCart.push({
+          id: productId,
+          productId: productId,
+          name: product.name,
+          price: product.price,
+          image: product.image || product.imageUrl,
+          quantity: 1
+        });
+      }
+      localStorage.setItem('guestCart', JSON.stringify(currentCart));
+      setCartItems(currentCart);
+      setCartCount(currentCart.reduce((sum, item) => sum + item.quantity, 0));
+      toast.success('Đã thêm sản phẩm vào giỏ hàng');
       return;
     }
     try {
       const res = await cartApi.addItem(product.id || product.productId, 1);
       setCartItems(res.data.items || []);
       setCartCount(res.data.itemCount || 0);
+      toast.success('Đã thêm sản phẩm vào giỏ hàng');
     } catch (err) {
-      alert(err.response?.data?.error || 'Thêm vào giỏ hàng thất bại');
+      toast.error(err.response?.data?.error || 'Thêm vào giỏ hàng thất bại');
     }
   };
 
   const removeFromCart = async (itemId) => {
+    if (!user) {
+      const currentCart = JSON.parse(localStorage.getItem('guestCart')) || [];
+      const updatedCart = currentCart.filter(i => (i.id || i.productId) !== itemId);
+      localStorage.setItem('guestCart', JSON.stringify(updatedCart));
+      setCartItems(updatedCart);
+      setCartCount(updatedCart.reduce((sum, item) => sum + item.quantity, 0));
+      return;
+    }
     try {
       const res = await cartApi.removeItem(itemId);
       setCartItems(res.data.items || []);
@@ -87,6 +127,19 @@ function App() {
   };
 
   const updateCartQuantity = async (itemId, quantity) => {
+    if (!user) {
+      if (quantity <= 0) {
+        await removeFromCart(itemId);
+        return;
+      }
+      const currentCart = JSON.parse(localStorage.getItem('guestCart')) || [];
+      const item = currentCart.find(i => (i.id || i.productId) === itemId);
+      if (item) item.quantity = quantity;
+      localStorage.setItem('guestCart', JSON.stringify(currentCart));
+      setCartItems(currentCart);
+      setCartCount(currentCart.reduce((sum, i) => sum + i.quantity, 0));
+      return;
+    }
     try {
       if (quantity <= 0) {
         await removeFromCart(itemId);
@@ -111,8 +164,7 @@ function App() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-    setCartItems([]);
-    setCartCount(0);
+    // fetchCart will be triggered by useEffect when user becomes null, loading the guest cart
   };
 
   if (loading) return null;
@@ -172,6 +224,7 @@ function App() {
           </div>
         } />
       </Routes>
+      <ToastContainer position="bottom-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme="light" />
     </Router>
   );
 }
