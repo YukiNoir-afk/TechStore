@@ -68,11 +68,7 @@ const CartPage = ({ cartItems, removeFromCart, updateCartQuantity, user }) => {
               <div className="border-t-2 border-primary-100 pt-4 mb-6">
                 <div className="flex justify-between text-lg font-bold"><span>Tổng</span><span className="text-primary-600">{formatPrice(total)}</span></div>
               </div>
-              {user ? (
-                <Link to="/checkout"><Button size="lg" fullWidth variant="primary">Tiến hành thanh toán</Button></Link>
-              ) : (
-                <Link to="/login"><Button size="lg" fullWidth variant="primary">Đăng nhập để thanh toán</Button></Link>
-              )}
+              <Link to="/checkout"><Button size="lg" fullWidth variant="primary">Tiến hành thanh toán</Button></Link>
               <Link to="/products" className="block text-center mt-4 text-primary-600 font-medium hover:text-primary-700 transition-colors">← Tiếp tục mua sắm</Link>
             </div>
           </div>
