@@ -10,7 +10,7 @@ public class Order
     public string Id { get; set; } = null!;
 
     [BsonRepresentation(BsonType.ObjectId)]
-    public string UserId { get; set; } = null!;
+    public string? UserId { get; set; }
 
     public string Status { get; set; } = "Pending"; // Pending, Processing, Shipped, Delivered, Cancelled
 

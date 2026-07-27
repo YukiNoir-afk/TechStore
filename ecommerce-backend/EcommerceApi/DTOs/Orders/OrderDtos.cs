@@ -16,6 +16,13 @@ public class CreateOrderRequest
     public string? PaymentIntentId { get; set; }
     public string? PromoCode { get; set; }
     public string? VoucherCode { get; set; }
+    public List<GuestCartItemRequest>? GuestItems { get; set; }
+}
+
+public class GuestCartItemRequest
+{
+    public string ProductId { get; set; } = string.Empty;
+    public int Quantity { get; set; }
 }
 
 public class OrderDto

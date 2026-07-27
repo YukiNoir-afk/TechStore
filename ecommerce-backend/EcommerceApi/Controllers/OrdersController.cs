@@ -12,9 +12,9 @@ public class OrdersController : ControllerBase
     private readonly OrderService _orders;
     public OrdersController(OrderService orders) { _orders = orders; }
 
-    private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    private string? UserId => User.Identity?.IsAuthenticated == true ? User.FindFirstValue(ClaimTypes.NameIdentifier) : null;
 
-    [HttpPost]
+    [HttpPost, AllowAnonymous]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
     {
         try { return Ok(await _orders.CreateOrder(UserId, request)); }

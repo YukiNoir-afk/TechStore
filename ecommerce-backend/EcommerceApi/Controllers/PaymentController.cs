@@ -32,7 +32,7 @@ public class PaymentController : ControllerBase
     /// Create a Stripe PaymentIntent for the given amount.
     /// Frontend calls this right before confirming payment.
     /// </summary>
-    [HttpPost("create-intent"), Authorize]
+    [HttpPost("create-intent"), AllowAnonymous]
     public async Task<IActionResult> CreateIntent([FromBody] CreateIntentRequest request)
     {
         try
@@ -49,7 +49,7 @@ public class PaymentController : ControllerBase
         }
     }
 
-    [HttpPost("momo/create"), Authorize]
+    [HttpPost("momo/create"), AllowAnonymous]
     public async Task<IActionResult> CreateMomoPayment([FromBody] CreateMomoPaymentRequest request, [FromServices] MomoService momoService, [FromServices] OrderService orderService)
     {
         try

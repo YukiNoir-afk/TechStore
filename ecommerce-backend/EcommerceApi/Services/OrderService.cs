@@ -17,9 +17,18 @@ public class OrderService
         _db = db; _email = email; _payment = payment; _promo = promo; _voucher = voucher;
     }
 
-    public async Task<OrderDetailDto> CreateOrder(string userId, CreateOrderRequest request)
+    public async Task<OrderDetailDto> CreateOrder(string? userId, CreateOrderRequest request)
     {
-        var cartItems = await _db.CartItems.Find(ci => ci.UserId == userId).ToListAsync();
+        List<CartItem> cartItems = new();
+        if (userId != null)
+        {
+            cartItems = await _db.CartItems.Find(ci => ci.UserId == userId).ToListAsync();
+        }
+        else if (request.GuestItems != null && request.GuestItems.Any())
+        {
+            cartItems = request.GuestItems.Select(g => new CartItem { ProductId = g.ProductId, Quantity = g.Quantity }).ToList();
+        }
+
         if (!cartItems.Any()) throw new InvalidOperationException("Giỏ hàng trống");
 
         // Load products
@@ -63,7 +72,7 @@ public class OrderService
 
             await _db.PromoCodes.UpdateOneAsync(p => p.Id == promoCode.Id, Builders<PromoCode>.Update.Inc(p => p.UsedCount, 1));
         }
-        else if (!string.IsNullOrEmpty(request.VoucherCode))
+        else if (!string.IsNullOrEmpty(request.VoucherCode) && userId != null)
         {
             var voucher = await _voucher.UseVoucher(userId, request.VoucherCode);
             if (voucher.MinOrderValue.HasValue && subtotal < voucher.MinOrderValue.Value)
@@ -124,10 +133,18 @@ public class OrderService
         }
 
         // Clear cart
-        await _db.CartItems.DeleteManyAsync(ci => ci.UserId == userId);
+        if (userId != null)
+        {
+            await _db.CartItems.DeleteManyAsync(ci => ci.UserId == userId);
+        }
 
         // Send email
-        var user = await _db.Users.Find(u => u.Id == userId).FirstOrDefaultAsync();
+        User? user = null;
+        if (userId != null)
+        {
+            user = await _db.Users.Find(u => u.Id == userId).FirstOrDefaultAsync();
+        }
+
         if (user != null)
         {
             _ = _email.SendOrderConfirmationAsync(order, user); // fire-and-forget
@@ -144,6 +161,12 @@ public class OrderService
             // Auto-grant voucher when tier changes
             if (newTier != oldTier)
                 _ = _voucher.AutoGrantTierUpVoucher(userId, newTier);
+        }
+        else if (!string.IsNullOrEmpty(request.Email))
+        {
+            // Fallback for guest confirmation email
+            var guestUser = new User { Email = request.Email, FirstName = request.FirstName, LastName = request.LastName };
+            _ = _email.SendOrderConfirmationAsync(order, guestUser);
         }
 
         return await GetOrderDetail(userId, order.Id) ?? throw new Exception("Tạo đơn hàng thất bại");
@@ -194,9 +217,15 @@ public class OrderService
         }).ToList();
     }
 
-    public async Task<OrderDetailDto?> GetOrderDetail(string userId, string orderId)
+    public async Task<OrderDetailDto?> GetOrderDetail(string? userId, string orderId)
     {
-        var o = await _db.Orders.Find(x => x.Id == orderId && x.UserId == userId).FirstOrDefaultAsync();
+        var filter = Builders<Order>.Filter.Eq(x => x.Id, orderId);
+        if (userId != null) {
+            filter &= Builders<Order>.Filter.Eq(x => x.UserId, userId);
+        } else {
+            filter &= Builders<Order>.Filter.Eq(x => x.UserId, null);
+        }
+        var o = await _db.Orders.Find(filter).FirstOrDefaultAsync();
         if (o == null) return null;
 
         return new OrderDetailDto
