@@ -132,6 +132,85 @@ const DeleteModal = ({ user, onClose, onConfirm }) => {
   );
 };
 
+// ── Reset Password Modal ─────────────────────────────────────────────
+const ResetPasswordModal = ({ user, onClose, onConfirm }) => {
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    setError('');
+    if (newPassword.length < 6) {
+      setError('Mật khẩu phải có ít nhất 6 ký tự');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Mật khẩu xác nhận không khớp');
+      return;
+    }
+    setLoading(true);
+    await onConfirm(user.id, newPassword);
+    setLoading(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4">
+          <h3 className="text-white font-bold text-lg">🔑 Đổi mật khẩu</h3>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+            <p className="text-sm text-indigo-800">
+              Đổi mật khẩu cho <strong>{user.firstName} {user.lastName}</strong> ({user.email})
+            </p>
+          </div>
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+              <p className="text-sm text-red-700">❌ {error}</p>
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)..."
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Xác nhận mật khẩu</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              placeholder="Nhập lại mật khẩu mới..."
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+          <div className="flex gap-3 justify-end">
+            <button onClick={onClose} className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+              Hủy
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={loading || !newPassword}
+              className="px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+              Đổi mật khẩu
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Order History Modal ──────────────────────────────────────────────
 const OrderHistoryModal = ({ data, onClose, loading, error }) => {
   return (
@@ -284,6 +363,7 @@ const UsersAdminPage = () => {
   const [lockModal, setLockModal] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null);
   const [orderModal, setOrderModal] = useState({ show: false, data: null, loading: false, error: null });
+  const [resetPwModal, setResetPwModal] = useState(null);
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -331,6 +411,17 @@ const UsersAdminPage = () => {
       setDeleteModal(null);
     } catch (err) {
       showToast(err.response?.data?.error || 'Lỗi khi xóa tài khoản', 'error');
+    }
+  };
+
+  // ── Reset Password ──
+  const handleResetPassword = async (userId, newPassword) => {
+    try {
+      await adminApi.resetUserPassword(userId, { newPassword });
+      showToast('Đã đổi mật khẩu thành công');
+      setResetPwModal(null);
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Lỗi khi đổi mật khẩu', 'error');
     }
   };
 
@@ -487,6 +578,13 @@ const UsersAdminPage = () => {
                             </button>
                           )}
                           <button
+                            onClick={() => setResetPwModal(user)}
+                            title="Đổi mật khẩu"
+                            className="px-2.5 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                          >
+                            🔑 Đổi MK
+                          </button>
+                          <button
                             onClick={() => setDeleteModal(user)}
                             title="Xóa tài khoản"
                             className="px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
@@ -510,6 +608,9 @@ const UsersAdminPage = () => {
       )}
       {deleteModal && (
         <DeleteModal user={deleteModal} onClose={() => setDeleteModal(null)} onConfirm={handleDeleteUser} />
+      )}
+      {resetPwModal && (
+        <ResetPasswordModal user={resetPwModal} onClose={() => setResetPwModal(null)} onConfirm={handleResetPassword} />
       )}
       {orderModal.show && (
         <OrderHistoryModal

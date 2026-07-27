@@ -32,7 +32,8 @@ const OrderHistoryPage = () => {
 
   const canCancel = (status) => {
     const s = status.toLowerCase();
-    return s !== 'shipped' && s !== 'delivered' && s !== 'cancelled';
+    return s !== 'shipped' && s !== 'delivered' && s !== 'cancelled' && 
+           s !== 'đã hủy' && s !== 'đang giao' && s !== 'đã hoàn thành';
   };
 
   const handleCancel = async (e, orderId) => {
@@ -52,7 +53,10 @@ const OrderHistoryPage = () => {
     }
   };
 
-  const statusColors = { pending: 'warning', processing: 'info', shipped: 'info', delivered: 'success', cancelled: 'danger' };
+  const statusColors = { 
+    pending: 'warning', processing: 'info', shipped: 'info', delivered: 'success', cancelled: 'danger',
+    'chờ xử lý': 'warning', 'đang xử lý': 'info', 'đang giao': 'info', 'đã hoàn thành': 'success', 'đã hủy': 'danger'
+  };
 
   const translateStatus = (status) => {
     switch (status) {

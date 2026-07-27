@@ -99,6 +99,12 @@ const Header = ({ cartCount = 0, user = null, onLogout }) => {
                 >
                   Yêu thích
                 </Link>
+                <Link
+                  to="/my-vouchers"
+                  className="text-text-primary hover:text-primary-600 font-medium transition-colors"
+                >
+                  🎟️ Voucher
+                </Link>
                 <button onClick={onLogout} className="text-text-primary hover:text-primary-600 font-medium transition-colors">
                   Đăng xuất
                 </button>
@@ -223,6 +229,12 @@ const Header = ({ cartCount = 0, user = null, onLogout }) => {
                     className="block px-4 py-2 text-text-primary hover:bg-primary-50 rounded-lg transition-colors"
                   >
                     Yêu thích
+                  </Link>
+                  <Link
+                    to="/my-vouchers"
+                    className="block px-4 py-2 text-text-primary hover:bg-primary-50 rounded-lg transition-colors"
+                  >
+                    🎟️ My Voucher
                   </Link>
                   <button onClick={onLogout} className="block w-full text-left px-4 py-2 text-text-primary hover:bg-primary-50 rounded-lg transition-colors">
                     Đăng xuất

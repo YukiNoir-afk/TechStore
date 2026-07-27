@@ -79,6 +79,7 @@ export const paymentsApi = {
   createIntent: (amount, currency = 'vnd') =>
     api.post('/payments/create-intent', { amount, currency }),
   getConfig: () => api.get('/payments/config'),
+  createMomoPayment: (orderId, requestType) => api.post('/payments/momo/create', { orderId, requestType }),
 };
 
 // Chatbot API
@@ -117,6 +118,14 @@ export const profileApi = {
   updateAddress: (id, data) => api.put(`/profile/addresses/${id}`, data),
   deleteAddress: (id) => api.delete(`/profile/addresses/${id}`),
   setDefaultAddress: (id) => api.put(`/profile/addresses/${id}/default`),
+};
+
+// Vouchers API (Loyalty Vouchers)
+export const vouchersApi = {
+  getAll: () => api.get('/vouchers'),
+  validate: (code) => api.post('/vouchers/validate', { code }),
+  getCatalog: () => api.get('/vouchers/catalog'),
+  claim: (templateId) => api.post(`/vouchers/claim/${templateId}`),
 };
 
 // Promo Code API (public)

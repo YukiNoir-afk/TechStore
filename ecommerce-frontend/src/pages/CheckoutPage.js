@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import Button from '../components/Button';
-import { ordersApi, paymentsApi, profileApi, promoApi } from '../utils/api';
+import { ordersApi, paymentsApi, profileApi, promoApi, vouchersApi } from '../utils/api';
 import { formatPrice } from '../utils/formatPrice';
 
 // ── Constant Options for Stripe Elements ─────────────────────────────────────
@@ -141,7 +141,7 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
     zipCode: '',
     country: 'Việt Nam',
     shippingMethod: 'standard',
-    paymentMethod: 'credit',
+    paymentMethod: 'momo_qr',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -235,6 +235,7 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
     setPromoLoading(true);
     setPromoError('');
     try {
+      // Try promo code first
       const res = await promoApi.validate(promoCode.trim());
       const promo = res.data;
       // Check min order value
@@ -242,12 +243,25 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
         setPromoError(`Đơn hàng tối thiểu ${formatPrice(promo.minOrderValue)} để áp dụng mã này`);
         setPromoApplied(null);
       } else {
-        setPromoApplied(promo);
+        setPromoApplied({ ...promo, isVoucher: false });
         setPromoError('');
       }
     } catch (err) {
-      setPromoError(err.response?.data?.error || 'Mã giảm giá không hợp lệ');
-      setPromoApplied(null);
+      // If promo code fails, try as voucher code
+      try {
+        const vRes = await vouchersApi.validate(promoCode.trim());
+        const voucher = vRes.data;
+        if (voucher.minOrderValue && subtotal < voucher.minOrderValue) {
+          setPromoError(`Đơn hàng tối thiểu ${formatPrice(voucher.minOrderValue)} để áp dụng voucher này`);
+          setPromoApplied(null);
+        } else {
+          setPromoApplied({ ...voucher, isVoucher: true });
+          setPromoError('');
+        }
+      } catch (vErr) {
+        setPromoError(err.response?.data?.error || 'Mã giảm giá / voucher không hợp lệ');
+        setPromoApplied(null);
+      }
     } finally {
       setPromoLoading(false);
     }
@@ -283,10 +297,23 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
         shippingMethod: formData.shippingMethod,
         paymentMethod: formData.paymentMethod,
         paymentIntentId,
-        promoCode: promoApplied?.code || null,
+        promoCode: promoApplied?.isVoucher ? null : (promoApplied?.code || null),
+        voucherCode: promoApplied?.isVoucher ? promoApplied.code : null,
       });
-      if (onOrderPlaced) onOrderPlaced();
-      navigate(`/order-confirmation/${res.data.id}`);
+
+      if (formData.paymentMethod === 'momo_qr') {
+        // Redirect to MoMo payment page (QR Code)
+        const momoRes = await paymentsApi.createMomoPayment(res.data.id, 'captureWallet');
+        window.location.href = momoRes.data.payUrl;
+      } else if (formData.paymentMethod === 'momo_atm') {
+        // Redirect to MoMo payment page (ATM)
+        const momoRes = await paymentsApi.createMomoPayment(res.data.id, 'payWithATM');
+        window.location.href = momoRes.data.payUrl;
+      } else {
+        if (onOrderPlaced) onOrderPlaced();
+        // Stripe and COD
+        navigate(`/order-confirmation/${res.data.id}`);
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Đặt hàng thất bại');
     } finally {
@@ -461,8 +488,9 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
                 <div className="space-y-4">
                   <div className="space-y-3">
                     {[
-                      { id: 'credit', label: '💳 Thẻ tín dụng / thẻ ghi nợ (Stripe)' },
-                      { id: 'paypal', label: '🅿️ PayPal' }
+                      { id: 'momo_qr', label: '📱 Ví điện tử MoMo (Quét mã QR)' },
+                      { id: 'momo_atm', label: '💳 Thẻ ATM Nội Địa (Qua cổng MoMo)' },
+                      { id: 'cod', label: '💵 Thanh toán khi nhận hàng (COD)' }
                     ].map((m) => (
                       <label key={m.id} className="flex items-center space-x-3 cursor-pointer">
                         <input type="radio" name="paymentMethod" value={m.id} checked={formData.paymentMethod === m.id} onChange={handleInputChange} className="w-4 h-4" />
@@ -471,45 +499,24 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
                     ))}
                   </div>
 
-                  {formData.paymentMethod === 'credit' && (
-                    <div className="mt-6">
-                      {isStripeConfigured ? (
-                        <Elements stripe={stripePromise}>
-                          <StripePaymentForm
-                            total={total}
-                            onSuccess={(intentId) => handlePlaceOrder(intentId)}
-                            onError={setError}
-                            isLoading={isLoading}
-                            setIsLoading={setIsLoading}
-                            formData={formData}
-                          />
-                        </Elements>
-                      ) : (
-                        // Stripe not configured — demo mode
-                        <div>
-                          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
-                            <p className="text-amber-800 text-sm font-medium">⚠️ Stripe chưa cấu hình</p>
-                            <p className="text-amber-700 text-xs mt-1">
-                              Thêm Stripe keys vào <code className="bg-amber-100 px-1 rounded">appsettings.json</code> để thu tiền thật.<br />
-                              Hiện tại đang dùng chế độ demo — đơn hàng sẽ được tạo nhưng không thu tiền.
-                            </p>
-                          </div>
-                          <div className="space-y-3">
-                            <input type="text" className="w-full border-2 border-primary-200 rounded-lg px-4 py-2 font-mono text-gray-400 bg-gray-50" placeholder="4242 4242 4242 4242 (demo)" readOnly />
-                            <div className="grid grid-cols-2 gap-3">
-                              <input type="text" className="w-full border-2 border-primary-200 rounded-lg px-4 py-2 font-mono text-gray-400 bg-gray-50" placeholder="MM/YY" readOnly />
-                              <input type="text" className="w-full border-2 border-primary-200 rounded-lg px-4 py-2 font-mono text-gray-400 bg-gray-50" placeholder="CVV" readOnly />
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                  {formData.paymentMethod === 'cod' && (
+                    <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+                      <p className="text-green-800 font-medium">💵 Thanh toán khi nhận hàng (COD)</p>
+                      <p className="text-green-600 text-sm mt-1">Bạn sẽ thanh toán bằng tiền mặt khi shipper giao hàng tới.</p>
                     </div>
                   )}
 
-                  {formData.paymentMethod === 'paypal' && (
-                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
-                      <p className="text-blue-800 font-medium">🅿️ Tích hợp PayPal sẽ sớm có</p>
-                      <p className="text-blue-600 text-sm mt-1">Vui lòng dùng thẻ tín dụng tạm thời.</p>
+                  {formData.paymentMethod === 'momo_qr' && (
+                    <div className="mt-6 p-4 bg-pink-50 border border-pink-200 rounded-lg text-center">
+                      <p className="text-pink-800 font-medium">📱 Thanh toán qua Ví MoMo (Mã QR)</p>
+                      <p className="text-pink-600 text-sm mt-1">Sử dụng ứng dụng MoMo trên điện thoại để quét mã QR thanh toán.</p>
+                    </div>
+                  )}
+
+                  {formData.paymentMethod === 'momo_atm' && (
+                    <div className="mt-6 p-4 bg-pink-50 border border-pink-200 rounded-lg text-center">
+                      <p className="text-pink-800 font-medium">💳 Thanh toán bằng Thẻ ATM Nội Địa (MoMo)</p>
+                      <p className="text-pink-600 text-sm mt-1">Bạn sẽ được chuyển hướng sang cổng thanh toán MoMo để nhập thông tin thẻ ATM.</p>
                     </div>
                   )}
                 </div>
@@ -542,17 +549,12 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
             <div className="flex justify-between gap-4 mt-6">
               {step > 1 && <Button variant="outline" onClick={() => setStep(step - 1)}>← Quay lại</Button>}
               <div className="flex-grow"></div>
-              {/* Show Next only on steps 1 and 2 (step 2 has its own payment button when Stripe is configured) */}
-              {step < 3 && (step !== 2 || !isStripeConfigured || formData.paymentMethod !== 'credit') && (
+              {/* Show Next only on steps 1 and 2 */}
+              {step < 3 && (
                 <Button variant="primary" size="lg" onClick={() => {
-                  if (step === 2 && formData.paymentMethod !== 'credit') {
-                    // PayPal or non-Stripe: go to review
-                    setStep(3);
-                  } else {
-                    setStep(step + 1);
-                  }
+                  setStep(step === 2 ? 3 : 2);
                 }}>
-                  {step === 2 && formData.paymentMethod !== 'credit' ? 'Kiểm tra đơn hàng →' : 'Tiếp theo →'}
+                  {step === 2 ? 'Kiểm tra đơn hàng →' : 'Tiếp theo →'}
                 </Button>
               )}
               {step === 3 && (
@@ -578,11 +580,11 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
 
               {/* Promo Code Section */}
               <div className="mb-6 pb-6 border-b-2 border-primary-100">
-                <label className="block text-sm font-medium text-text-primary mb-2">🏷️ Mã giảm giá</label>
+                <label className="block text-sm font-medium text-text-primary mb-2">🏷️ Mã giảm giá / Voucher</label>
                 {promoApplied ? (
                   <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-4 py-3">
                     <div>
-                      <span className="font-bold text-green-700 text-sm">✅ {promoApplied.code}</span>
+                      <span className="font-bold text-green-700 text-sm">✅ {promoApplied.code} {promoApplied.isVoucher && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full ml-1">Voucher</span>}</span>
                       <span className="text-green-600 text-xs block">
                         Giảm {promoApplied.discountType === 'Percentage'
                           ? `${promoApplied.discountValue}%`
@@ -605,7 +607,7 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
                       value={promoCode}
                       onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoError(''); }}
                       onKeyDown={(e) => e.key === 'Enter' && handleApplyPromo()}
-                      placeholder="Nhập mã giảm giá"
+                      placeholder="Nhập mã giảm giá hoặc voucher"
                       className="flex-grow border-2 border-primary-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary-500 uppercase"
                     />
                     <button

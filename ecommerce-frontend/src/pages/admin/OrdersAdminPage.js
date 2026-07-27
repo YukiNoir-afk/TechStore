@@ -61,13 +61,22 @@ const OrdersAdminPage = () => {
 
   useEffect(() => { fetchOrders(filterStatus); }, [filterStatus]);
 
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   const handleStatusUpdate = async (orderId, newStatus) => {
     setUpdating(orderId);
     try {
-      await adminApi.updateOrderStatus(orderId, { status: newStatus });
+      const result = await adminApi.updateOrderStatus(orderId, { status: newStatus });
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      const customerEmail = result.data?.customerEmail || '';
+      showToast(`✅ Cập nhật trạng thái thành công! Email thông báo đã được gửi${customerEmail ? ` đến ${customerEmail}` : ''}.`);
     } catch (e) {
-      alert('Cập nhật thất bại');
+      showToast('Cập nhật thất bại', 'error');
     } finally {
       setUpdating(null);
     }
@@ -105,6 +114,18 @@ const OrdersAdminPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 max-w-md px-5 py-3.5 rounded-xl shadow-lg text-sm font-medium transition-all ${
+          toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white'
+        }`} style={{ animation: 'adminSlideIn 0.3s ease-out' }}>
+          <div className="flex items-start gap-2">
+            <span className="flex-shrink-0">{toast.type === 'error' ? '❌' : '📧'}</span>
+            <span>{toast.message}</span>
+          </div>
+        </div>
+      )}
+
       {/* Phone Lookup Toggle */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <button
@@ -365,6 +386,12 @@ const OrdersAdminPage = () => {
           </div>
         )}
       </div>
+      <style>{`
+        @keyframes adminSlideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 };

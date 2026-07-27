@@ -19,6 +19,7 @@ adminAxios.interceptors.request.use((config) => {
 export const adminApi = {
   // Dashboard
   getDashboard: () => adminAxios.get('/dashboard'),
+  getRevenueReport: (params) => adminAxios.get('/revenue-report', { params }),
 
   // Orders
   getOrders: (status) => adminAxios.get('/orders', { params: status ? { status } : {} }),
@@ -35,6 +36,7 @@ export const adminApi = {
   lockUser: (id, data) => adminAxios.put(`/users/${id}/lock`, data),
   unlockUser: (id) => adminAxios.put(`/users/${id}/unlock`),
   deleteUser: (id) => adminAxios.delete(`/users/${id}`),
+  resetUserPassword: (id, data) => adminAxios.put(`/users/${id}/reset-password`, data),
 
   // Order History by Phone
   getOrdersByPhone: (phone) => adminAxios.get('/orders/by-phone', { params: { phone } }),
@@ -78,6 +80,15 @@ export const adminApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+
+  // Vouchers
+  giveVoucher: (data) => adminAxios.post('/vouchers/give', data),
+  giveVoucherToTier: (data) => adminAxios.post('/vouchers/give-tier', data),
+
+  // Voucher Templates
+  getVoucherTemplates: () => adminAxios.get('/voucher-templates'),
+  createVoucherTemplate: (data) => adminAxios.post('/voucher-templates', data),
+  toggleVoucherTemplate: (id) => adminAxios.patch(`/voucher-templates/${id}/toggle`),
 };
 
 export default adminApi;

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using EcommerceApi.DTOs.Admin;
 using EcommerceApi.DTOs.Support;
+using EcommerceApi.DTOs.Vouchers;
 using EcommerceApi.Services;
 
 namespace EcommerceApi.Controllers;
@@ -12,7 +13,8 @@ public class AdminController : ControllerBase
 {
     private readonly AdminService _admin;
     private readonly SupportService _support;
-    public AdminController(AdminService admin, SupportService support) { _admin = admin; _support = support; }
+    private readonly VoucherService _voucher;
+    public AdminController(AdminService admin, SupportService support, VoucherService voucher) { _admin = admin; _support = support; _voucher = voucher; }
 
     private string AdminUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
@@ -20,6 +22,18 @@ public class AdminController : ControllerBase
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboard()
         => Ok(await _admin.GetDashboardStats());
+
+    // ── Revenue Report ───────────────────────────────────────────────────
+    [HttpGet("revenue-report")]
+    public async Task<IActionResult> GetRevenueReport(
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        [FromQuery] string? paymentMethod = null)
+    {
+        var fromDate = from ?? DateTime.UtcNow.AddDays(-30);
+        var toDate = to ?? DateTime.UtcNow;
+        return Ok(await _admin.GetRevenueReport(fromDate, toDate, paymentMethod));
+    }
 
     // ── Orders ────────────────────────────────────────────────────────────
     [HttpGet("orders")]
@@ -83,6 +97,14 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> DeleteUser(string id)
     {
         try { await _admin.DeleteUser(id); return Ok(new { message = "Đã xóa tài khoản" }); }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPut("users/{id}/reset-password")]
+    public async Task<IActionResult> ResetUserPassword(string id, [FromBody] AdminResetPasswordRequest request)
+    {
+        try { await _admin.AdminResetPassword(id, request.NewPassword); return Ok(new { message = "Đã đổi mật khẩu thành công" }); }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
@@ -164,5 +186,44 @@ public class AdminController : ControllerBase
         try { return Ok(await _support.UpdateTicketStatus(id, request)); }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
     }
-}
 
+    // ── Vouchers ──────────────────────────────────────────────────────────
+    [HttpPost("vouchers/give")]
+    public async Task<IActionResult> GiveVoucher([FromBody] AdminGiveVoucherRequest request)
+    {
+        try { return Ok(await _voucher.GiveVoucher(request)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("vouchers/give-tier")]
+    public async Task<IActionResult> GiveVoucherToTier([FromBody] AdminGiveVoucherToTierRequest request)
+    {
+        try
+        {
+            var count = await _voucher.GiveVoucherToTier(request);
+            return Ok(new { message = $"Đã tặng voucher cho {count} khách hàng bậc {request.Tier}" });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    // ── Voucher Templates ────────────────────────────────────────────────
+    [HttpGet("voucher-templates")]
+    public async Task<IActionResult> GetVoucherTemplates()
+        => Ok(await _voucher.GetAllTemplates());
+
+    [HttpPost("voucher-templates")]
+    public async Task<IActionResult> CreateVoucherTemplate([FromBody] CreateVoucherTemplateRequest request)
+    {
+        try { return Ok(await _voucher.CreateVoucherTemplate(request)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPatch("voucher-templates/{id}/toggle")]
+    public async Task<IActionResult> ToggleVoucherTemplate(string id)
+    {
+        try { await _voucher.ToggleTemplate(id); return Ok(new { message = "Đã cập nhật trạng thái voucher template" }); }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+    }
+}

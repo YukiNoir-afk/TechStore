@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Spinner from '../components/Spinner';
-import { profileApi, authApi } from '../utils/api';
+import { profileApi, authApi, vouchersApi } from '../utils/api';
 import { formatPrice } from '../utils/formatPrice';
 import './ProfilePage.css';
 
@@ -30,6 +30,11 @@ const ProfilePage = ({ user, onUserUpdate }) => {
   });
   const [savingAddress, setSavingAddress] = useState(false);
 
+  // Vouchers
+  const [vouchers, setVouchers] = useState([]);
+  const [vouchersLoading, setVouchersLoading] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(null);
+
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -41,6 +46,7 @@ const ProfilePage = ({ user, onUserUpdate }) => {
       return;
     }
     fetchProfile();
+    fetchVouchers();
   }, [user, navigate]);
 
   const fetchProfile = async () => {
@@ -67,6 +73,31 @@ const ProfilePage = ({ user, onUserUpdate }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchVouchers = async () => {
+    setVouchersLoading(true);
+    try {
+      const res = await vouchersApi.getAll();
+      setVouchers(res.data || []);
+    } catch (err) {
+      console.error('Failed to fetch vouchers', err);
+    } finally {
+      setVouchersLoading(false);
+    }
+  };
+
+  const handleCopyCode = (code) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    showToast('Đã sao chép mã voucher!');
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  const getVoucherStatus = (v) => {
+    if (v.isUsed) return { text: 'Đã sử dụng', class: 'used', icon: '✅' };
+    if (new Date(v.expiryDate) < new Date()) return { text: 'Hết hạn', class: 'expired', icon: '⏰' };
+    return { text: 'Có thể sử dụng', class: 'active', icon: '🎟️' };
   };
 
   // ── Info Tab ──
@@ -287,6 +318,13 @@ const ProfilePage = ({ user, onUserUpdate }) => {
           </button>
           <button className={`tab-btn ${activeTab === 'rewards' ? 'active' : ''}`} onClick={() => setActiveTab('rewards')}>
             🏆 Thưởng
+          </button>
+          <button className={`tab-btn ${activeTab === 'vouchers' ? 'active' : ''}`} onClick={() => { setActiveTab('vouchers'); fetchVouchers(); }}>
+            🎟️ Voucher {vouchers.filter(v => !v.isUsed && new Date(v.expiryDate) >= new Date()).length > 0 && (
+              <span style={{ background: '#ef4444', color: 'white', borderRadius: '9999px', padding: '1px 7px', fontSize: '0.7rem', marginLeft: '4px', fontWeight: 700 }}>
+                {vouchers.filter(v => !v.isUsed && new Date(v.expiryDate) >= new Date()).length}
+              </span>
+            )}
           </button>
         </div>
 
@@ -524,6 +562,155 @@ const ProfilePage = ({ user, onUserUpdate }) => {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Vouchers Tab ── */}
+          {activeTab === 'vouchers' && (
+            <div className="vouchers-container">
+              <div className="profile-form-card" style={{ gridColumn: '1 / -1' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                  <h2 style={{ margin: 0 }}>🎟️ Voucher của tôi</h2>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#7F8C8D' }}>
+                      {vouchers.filter(v => !v.isUsed && new Date(v.expiryDate) >= new Date()).length} voucher khả dụng
+                    </span>
+                  </div>
+                </div>
+
+                {vouchersLoading ? (
+                  <div style={{ textAlign: 'center', padding: '3rem' }}>
+                    <Spinner />
+                  </div>
+                ) : vouchers.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎫</div>
+                    <h3 style={{ color: '#64748b', marginBottom: '0.5rem' }}>Bạn chưa có voucher nào</h3>
+                    <p style={{ fontSize: '0.9rem' }}>Tiếp tục mua sắm để tích điểm và lên hạng — bạn sẽ nhận voucher thưởng khi đạt hạng mới!</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: '1rem' }}>
+                    {vouchers.map(v => {
+                      const status = getVoucherStatus(v);
+                      const isUsable = !v.isUsed && new Date(v.expiryDate) >= new Date();
+                      return (
+                        <div
+                          key={v.id}
+                          className={`voucher-card voucher-${status.class}`}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'stretch',
+                            borderRadius: '12px',
+                            border: isUsable ? '2px solid #3b82f6' : '2px solid #e2e8f0',
+                            overflow: 'hidden',
+                            background: isUsable ? 'linear-gradient(135deg, #eff6ff, #f0f9ff)' : '#f8fafc',
+                            opacity: isUsable ? 1 : 0.65,
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          {/* Left side - Discount */}
+                          <div style={{
+                            padding: '1.25rem',
+                            minWidth: '140px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: isUsable
+                              ? 'linear-gradient(135deg, #2563eb, #1d4ed8)'
+                              : '#94a3b8',
+                            color: 'white',
+                            position: 'relative',
+                          }}>
+                            <div style={{ fontSize: '0.75rem', opacity: 0.85, marginBottom: '4px' }}>GIẢM</div>
+                            <div style={{ fontSize: '1.75rem', fontWeight: 800, lineHeight: 1 }}>
+                              {v.discountType === 'Percentage' ? `${v.discountValue}%` : formatPrice(v.discountValue)}
+                            </div>
+                            {v.minOrderValue && (
+                              <div style={{ fontSize: '0.65rem', opacity: 0.85, marginTop: '6px', textAlign: 'center' }}>
+                                Đơn từ {formatPrice(v.minOrderValue)}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right side - Info */}
+                          <div style={{ flex: 1, padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                              <code style={{
+                                background: isUsable ? '#dbeafe' : '#f1f5f9',
+                                color: isUsable ? '#1e40af' : '#64748b',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                fontWeight: 700,
+                                fontSize: '0.9rem',
+                                letterSpacing: '0.5px',
+                              }}>
+                                {v.code}
+                              </code>
+                              {isUsable && (
+                                <button
+                                  onClick={() => handleCopyCode(v.code)}
+                                  style={{
+                                    border: 'none',
+                                    background: copiedCode === v.code ? '#22c55e' : '#e2e8f0',
+                                    color: copiedCode === v.code ? 'white' : '#64748b',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 600,
+                                    transition: 'all 0.2s',
+                                  }}
+                                >
+                                  {copiedCode === v.code ? '✓ Đã sao chép' : '📋 Sao chép'}
+                                </button>
+                              )}
+                              <span style={{
+                                marginLeft: 'auto',
+                                padding: '2px 10px',
+                                borderRadius: '9999px',
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                background: status.class === 'active' ? '#dcfce7' : status.class === 'used' ? '#f1f5f9' : '#fef2f2',
+                                color: status.class === 'active' ? '#166534' : status.class === 'used' ? '#64748b' : '#991b1b',
+                              }}>
+                                {status.icon} {status.text}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.78rem', color: '#64748b', flexWrap: 'wrap' }}>
+                              <span>📅 HSD: {new Date(v.expiryDate).toLocaleDateString('vi-VN')}</span>
+                              <span>🏅 Hạng: {v.tierRequired}</span>
+                              <span>📦 Nguồn: {v.source === 'System' ? 'Hệ thống (lên hạng)' : 'Admin tặng'}</span>
+                              {v.isUsed && v.usedAt && (
+                                <span>✅ Dùng ngày: {new Date(v.usedAt).toLocaleDateString('vi-VN')}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Tip */}
+                {vouchers.length > 0 && (
+                  <div style={{
+                    marginTop: '1.5rem',
+                    padding: '1rem',
+                    background: '#fefce8',
+                    border: '1px solid #fde68a',
+                    borderRadius: '10px',
+                    fontSize: '0.85rem',
+                    color: '#92400e',
+                    display: 'flex',
+                    gap: '0.5rem',
+                    alignItems: 'flex-start',
+                  }}>
+                    <span>💡</span>
+                    <span>Sao chép mã voucher và nhập vào ô <strong>"Mã giảm giá"</strong> khi thanh toán để được giảm giá. Mỗi voucher chỉ dùng được 1 lần.</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

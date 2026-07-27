@@ -11,9 +11,10 @@ public class OrderService
     private readonly EmailService _email;
     private readonly PaymentService _payment;
     private readonly PromoCodeService _promo;
-    public OrderService(MongoDbContext db, EmailService email, PaymentService payment, PromoCodeService promo)
+    private readonly VoucherService _voucher;
+    public OrderService(MongoDbContext db, EmailService email, PaymentService payment, PromoCodeService promo, VoucherService voucher)
     {
-        _db = db; _email = email; _payment = payment; _promo = promo;
+        _db = db; _email = email; _payment = payment; _promo = promo; _voucher = voucher;
     }
 
     public async Task<OrderDetailDto> CreateOrder(string userId, CreateOrderRequest request)
@@ -62,9 +63,28 @@ public class OrderService
 
             await _db.PromoCodes.UpdateOneAsync(p => p.Id == promoCode.Id, Builders<PromoCode>.Update.Inc(p => p.UsedCount, 1));
         }
+        else if (!string.IsNullOrEmpty(request.VoucherCode))
+        {
+            var voucher = await _voucher.UseVoucher(userId, request.VoucherCode);
+            if (voucher.MinOrderValue.HasValue && subtotal < voucher.MinOrderValue.Value)
+                throw new InvalidOperationException($"Đơn hàng phải có giá trị tối thiểu {voucher.MinOrderValue.Value} để dùng voucher");
+                
+            discountAmount = voucher.DiscountType == "Percentage"
+                ? Math.Round(subtotal * (voucher.DiscountValue / 100), 2)
+                : voucher.DiscountValue;
+        }
 
         var total = subtotal - discountAmount + tax + shipping;
         if (total < 0) total = 0;
+
+        string paymentStatus = request.PaymentMethod switch
+        {
+            "credit" => "Đã thanh toán",
+            "cod" => "Chưa thanh toán",
+            "momo_qr" => "Chờ thanh toán",
+            "momo_atm" => "Chờ thanh toán",
+            _ => "Chưa thanh toán"
+        };
 
         var order = new Order
         {
@@ -74,7 +94,7 @@ public class OrderService
             ShippingName = $"{request.FirstName} {request.LastName}", ShippingAddress = request.Address,
             ShippingCity = request.City, ShippingState = request.State, ShippingZipCode = request.ZipCode,
             ShippingCountry = request.Country, ShippingEmail = request.Email, ShippingMethod = request.ShippingMethod,
-            PaymentMethod = request.PaymentMethod, PaymentStatus = "Đã thanh toán",
+            PaymentMethod = request.PaymentMethod, PaymentStatus = paymentStatus,
             TrackingNumber = $"TRK{DateTime.UtcNow.Ticks % 1000000000}", Carrier = "Giao Hàng Nhanh",
             EstimatedDelivery = DateTime.UtcNow.AddDays(request.ShippingMethod == "overnight" ? 1 : request.ShippingMethod == "express" ? 3 : 7),
             Items = cartItems.Select(ci =>
@@ -115,10 +135,15 @@ public class OrderService
             // Add Loyalty points
             int points = (int)Math.Floor(total);
             var newPoints = user.Points + points;
+            var oldTier = user.LoyaltyTier;
             var newTier = newPoints >= 1000 ? "Platinum" : newPoints >= 500 ? "Gold" : newPoints >= 100 ? "Silver" : "Bronze";
             
             await _db.Users.UpdateOneAsync(u => u.Id == userId, 
                 Builders<User>.Update.Set(u => u.Points, newPoints).Set(u => u.LoyaltyTier, newTier));
+
+            // Auto-grant voucher when tier changes
+            if (newTier != oldTier)
+                _ = _voucher.AutoGrantTierUpVoucher(userId, newTier);
         }
 
         return await GetOrderDetail(userId, order.Id) ?? throw new Exception("Tạo đơn hàng thất bại");
@@ -143,6 +168,16 @@ public class OrderService
         foreach (var item in order.Items)
         {
             await _db.Products.UpdateOneAsync(p => p.Id == item.ProductId, Builders<Product>.Update.Inc(p => p.Stock, item.Quantity));
+        }
+
+        // Send cancellation email
+        var user = await _db.Users.Find(u => u.Id == userId).FirstOrDefaultAsync();
+        if (user != null)
+        {
+            // Reload order with updated status for email template
+            var updatedOrder = await _db.Orders.Find(o => o.Id == orderId).FirstOrDefaultAsync();
+            if (updatedOrder != null)
+                _ = _email.SendOrderCancellationAsync(updatedOrder, user); // fire-and-forget
         }
     }
 
@@ -238,4 +273,20 @@ public class OrderService
         "overnight" => "Giao hàng hỏa tốc (1 ngày)",
         _ => "Giao hàng tiêu chuẩn (5-7 ngày)"
     };
+
+    public async Task<Order?> GetOrderByIdRaw(string orderId)
+    {
+        return await _db.Orders.Find(o => o.Id == orderId).FirstOrDefaultAsync();
+    }
+
+    public async Task UpdatePaymentStatus(string orderId, string paymentStatus)
+    {
+        var history = new OrderStatusHistory { Status = "Cập nhật thanh toán", Description = $"Thanh toán cập nhật thành: {paymentStatus}" };
+        var update = Builders<Order>.Update
+            .Set(o => o.PaymentStatus, paymentStatus)
+            .Push(o => o.StatusHistory, history)
+            .Set(o => o.UpdatedAt, DateTime.UtcNow);
+
+        await _db.Orders.UpdateOneAsync(o => o.Id == orderId, update);
+    }
 }

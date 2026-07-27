@@ -17,9 +17,13 @@ const StatCard = ({ label, value, icon, color, sub }) => (
 );
 
 const statusColor = (s) => {
-  const map = { Pending:'bg-yellow-100 text-yellow-800', Processing:'bg-blue-100 text-blue-800',
-    Shipped:'bg-purple-100 text-purple-800', Delivered:'bg-green-100 text-green-800',
-    Cancelled:'bg-red-100 text-red-800' };
+  const map = {
+    Pending: 'bg-yellow-100 text-yellow-800',
+    Processing: 'bg-blue-100 text-blue-800',
+    Shipped: 'bg-purple-100 text-purple-800',
+    Delivered: 'bg-green-100 text-green-800',
+    Cancelled: 'bg-red-100 text-red-800',
+  };
   return map[s] || 'bg-gray-100 text-gray-800';
 };
 
@@ -27,13 +31,68 @@ const DashboardPage = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [report, setReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(true);
+  const [reportError, setReportError] = useState(null);
+  const [range, setRange] = useState('30');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+
+  const formatDateValue = (date) => {
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  };
+
+  const loadDashboard = async () => {
+    try {
+      const res = await adminApi.getDashboard();
+      setStats(res.data);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Không thể tải dữ liệu');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadReport = async (selectedRange = range, selectedPayment = paymentMethod, selectedFrom = fromDate, selectedTo = toDate) => {
+    setReportLoading(true);
+    setReportError(null);
+
+    const params = {};
+
+    if (selectedRange === 'custom') {
+      if (selectedFrom) params.from = `${selectedFrom}T00:00:00Z`;
+      if (selectedTo) params.to = `${selectedTo}T23:59:59Z`;
+    } else {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - Number(selectedRange));
+      params.from = `${formatDateValue(start)}T00:00:00Z`;
+      params.to = `${formatDateValue(end)}T23:59:59Z`;
+    }
+
+    if (selectedPayment) params.paymentMethod = selectedPayment;
+
+    try {
+      const res = await adminApi.getRevenueReport(params);
+      setReport(res.data);
+    } catch (err) {
+      setReportError(err.response?.data?.error || 'Không thể tải báo cáo doanh thu');
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
   useEffect(() => {
-    adminApi.getDashboard()
-      .then(res => setStats(res.data))
-      .catch(err => setError(err.response?.data?.error || 'Không thể tải dữ liệu'))
-      .finally(() => setLoading(false));
+    loadDashboard();
+    loadReport();
   }, []);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    loadReport(range, paymentMethod, fromDate, toDate);
+  };
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -48,9 +107,10 @@ const DashboardPage = () => {
     <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">{error}</div>
   );
 
+  const maxDailyRevenue = Math.max(1, ...(report?.dailyBreakdown || []).map((item) => Number(item.revenue) || 0));
+
   return (
     <div className="space-y-8">
-      {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           label="Tổng doanh thu" icon="💰" color="border-green-500"
@@ -74,7 +134,6 @@ const DashboardPage = () => {
         />
       </div>
 
-      {/* Order Status Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Chờ xử lý', val: stats.pendingOrders, color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
@@ -89,8 +148,99 @@ const DashboardPage = () => {
         ))}
       </div>
 
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <h2 className="font-bold text-gray-800">Thống kê doanh thu</h2>
+            <p className="text-sm text-gray-500 mt-1">Lọc theo khoảng thời gian và hình thức thanh toán.</p>
+          </div>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3 w-full md:w-auto">
+            <select value={range} onChange={(e) => setRange(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+              <option value="7">7 ngày gần đây</option>
+              <option value="30">30 ngày gần đây</option>
+              <option value="90">90 ngày gần đây</option>
+              <option value="custom">Tùy chỉnh</option>
+            </select>
+            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+              <option value="">Tất cả hình thức</option>
+              <option value="credit">Thẻ tín dụng</option>
+              <option value="paypal">PayPal</option>
+              <option value="cod">COD</option>
+            </select>
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            <button type="submit" className="md:col-span-4 bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700">
+              Áp dụng
+            </button>
+          </form>
+        </div>
+
+        {reportError && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{reportError}</div>
+        )}
+
+        {reportLoading ? (
+          <div className="mt-6 flex items-center justify-center h-32 text-sm text-gray-500">Đang tải báo cáo...</div>
+        ) : (
+          <>
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="rounded-lg bg-green-50 p-4 border border-green-100">
+                <p className="text-sm text-green-700">Tổng doanh thu</p>
+                <p className="text-2xl font-bold text-green-800 mt-1">{formatPrice(report?.totalRevenue || 0)}</p>
+              </div>
+              <div className="rounded-lg bg-blue-50 p-4 border border-blue-100">
+                <p className="text-sm text-blue-700">Tổng đơn hàng</p>
+                <p className="text-2xl font-bold text-blue-800 mt-1">{report?.totalOrders || 0}</p>
+              </div>
+              <div className="rounded-lg bg-purple-50 p-4 border border-purple-100">
+                <p className="text-sm text-purple-700">Giá trị đơn trung bình</p>
+                <p className="text-2xl font-bold text-purple-800 mt-1">{formatPrice(report?.averageOrderValue || 0)}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="rounded-xl border border-gray-200 p-4">
+                <h3 className="font-semibold text-gray-800 mb-4">Doanh thu theo ngày</h3>
+                <div className="space-y-3">
+                  {(report?.dailyBreakdown || []).length === 0 ? (
+                    <p className="text-sm text-gray-500">Không có dữ liệu trong khoảng thời gian này.</p>
+                  ) : report.dailyBreakdown.map((item) => (
+                    <div key={item.date} className="flex items-center gap-3">
+                      <div className="w-24 text-xs text-gray-500">{item.date}</div>
+                      <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-2 rounded-full bg-blue-500" style={{ width: `${Math.max(8, (item.revenue / maxDailyRevenue) * 100)}%` }} />
+                      </div>
+                      <div className="w-24 text-right text-sm font-medium text-gray-700">{formatPrice(item.revenue)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 p-4">
+                <h3 className="font-semibold text-gray-800 mb-4">Theo hình thức thanh toán</h3>
+                <div className="space-y-3">
+                  {(report?.byPaymentMethod || []).length === 0 ? (
+                    <p className="text-sm text-gray-500">Không có dữ liệu cho hình thức thanh toán này.</p>
+                  ) : report.byPaymentMethod.map((item) => (
+                    <div key={item.paymentMethod} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{item.paymentMethod}</p>
+                        <p className="text-xs text-gray-500">{item.orderCount} đơn hàng</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-gray-800">{formatPrice(item.revenue)}</p>
+                        <p className="text-xs text-gray-500">{item.percentage}%</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Orders */}
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b flex items-center justify-between">
             <h2 className="font-bold text-gray-800">Đơn hàng gần đây</h2>
@@ -127,7 +277,6 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* Top Products */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b flex items-center justify-between">
             <h2 className="font-bold text-gray-800">Top sản phẩm</h2>

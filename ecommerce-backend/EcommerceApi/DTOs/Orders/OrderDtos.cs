@@ -15,6 +15,7 @@ public class CreateOrderRequest
     /// <summary>Stripe PaymentIntent ID — required for credit card payments</summary>
     public string? PaymentIntentId { get; set; }
     public string? PromoCode { get; set; }
+    public string? VoucherCode { get; set; }
 }
 
 public class OrderDto

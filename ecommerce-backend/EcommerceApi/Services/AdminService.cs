@@ -86,6 +86,65 @@ public class AdminService
         };
     }
 
+    // ── Revenue Report ────────────────────────────────────────────────────
+    public async Task<RevenueReportDto> GetRevenueReport(DateTime from, DateTime to, string? paymentMethod = null)
+    {
+        var builder = Builders<Order>.Filter;
+        var filter = builder.Gte(o => o.CreatedAt, from)
+                  & builder.Lte(o => o.CreatedAt, to)
+                  & builder.Ne(o => o.Status, "Cancelled");
+
+        if (!string.IsNullOrEmpty(paymentMethod))
+            filter &= builder.Eq(o => o.PaymentMethod, paymentMethod);
+
+        var orders = await _db.Orders.Find(filter)
+            .Sort(Builders<Order>.Sort.Ascending(o => o.CreatedAt))
+            .ToListAsync();
+
+        var totalRevenue = orders.Sum(o => o.Total);
+        var totalOrders = orders.Count;
+        var avgOrderValue = totalOrders > 0 ? Math.Round(totalRevenue / totalOrders, 0) : 0;
+
+        // Daily breakdown
+        var daily = orders
+            .GroupBy(o => o.CreatedAt.ToString("yyyy-MM-dd"))
+            .Select(g => new RevenueDailyDto
+            {
+                Date = g.Key,
+                Revenue = g.Sum(o => o.Total),
+                OrderCount = g.Count()
+            })
+            .OrderBy(d => d.Date)
+            .ToList();
+
+        // By payment method
+        var byPayment = orders
+            .GroupBy(o => o.PaymentMethod)
+            .Select(g => new RevenueByPaymentMethodDto
+            {
+                PaymentMethod = g.Key,
+                Revenue = g.Sum(o => o.Total),
+                OrderCount = g.Count(),
+                Percentage = totalRevenue > 0
+                    ? Math.Round(g.Sum(o => o.Total) / totalRevenue * 100, 1)
+                    : 0
+            })
+            .OrderByDescending(x => x.Revenue)
+            .ToList();
+
+        return new RevenueReportDto
+        {
+            From = from,
+            To = to,
+            PaymentMethodFilter = paymentMethod,
+            TotalRevenue = totalRevenue,
+            TotalOrders = totalOrders,
+            AverageOrderValue = avgOrderValue,
+            DailyBreakdown = daily,
+            ByPaymentMethod = byPayment
+        };
+    }
+
     // ── Orders ────────────────────────────────────────────────────────────
     public async Task<List<AdminOrderDto>> GetAllOrders(string? status = null)
     {
@@ -321,6 +380,24 @@ public class AdminService
         await _db.Reviews.DeleteManyAsync(r => r.UserId == userId);
 
         await _db.Users.DeleteOneAsync(u => u.Id == userId);
+    }
+
+    // ── Admin Reset Password ──────────────────────────────────────────────
+    public async Task AdminResetPassword(string userId, string newPassword)
+    {
+        var user = await _db.Users.Find(u => u.Id == userId).FirstOrDefaultAsync()
+            ?? throw new KeyNotFoundException("Người dùng không tồn tại");
+
+        if (user.Role == "Admin")
+            throw new InvalidOperationException("Không thể đổi mật khẩu tài khoản Admin khác");
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
+            throw new InvalidOperationException("Mật khẩu mới phải có ít nhất 6 ký tự");
+
+        var hash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        await _db.Users.UpdateOneAsync(
+            u => u.Id == userId,
+            Builders<User>.Update.Set(u => u.PasswordHash, hash));
     }
 
     // ── Order History by Phone ─────────────────────────────────────────────

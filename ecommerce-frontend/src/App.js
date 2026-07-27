@@ -17,6 +17,8 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import WishlistPage from './pages/WishlistPage';
 import ProfilePage from './pages/ProfilePage';
+import MyVoucherPage from './pages/MyVoucherPage';
+import MomoReturnPage from './pages/MomoReturnPage';
 import FAQPage from './pages/FAQPage';
 import Chatbot from './components/Chatbot';
 import AdminLayout from './pages/admin/AdminLayout';
@@ -28,6 +30,7 @@ import UsersAdminPage from './pages/admin/UsersAdminPage';
 import CategoriesAdminPage from './pages/admin/CategoriesAdminPage';
 import InventoryAdminPage from './pages/admin/InventoryAdminPage';
 import PromoCodesAdminPage from './pages/admin/PromoCodesAdminPage';
+import VoucherTemplatesAdminPage from './pages/admin/VoucherTemplatesAdminPage';
 import CustomerCareAdminPage from './pages/admin/CustomerCareAdminPage';
 import { cartApi } from './utils/api';
 import './App.css';
@@ -127,6 +130,7 @@ function App() {
         <Route path="/admin/inventory" element={<AdminLayout user={user}><InventoryAdminPage /></AdminLayout>} />
         <Route path="/admin/orders" element={<AdminLayout user={user}><OrdersAdminPage /></AdminLayout>} />
         <Route path="/admin/promo-codes" element={<AdminLayout user={user}><PromoCodesAdminPage /></AdminLayout>} />
+        <Route path="/admin/voucher-templates" element={<AdminLayout user={user}><VoucherTemplatesAdminPage /></AdminLayout>} />
         <Route path="/admin/customer-care" element={<AdminLayout user={user}><CustomerCareAdminPage /></AdminLayout>} />
         <Route path="/admin/users" element={<AdminLayout user={user}><UsersAdminPage /></AdminLayout>} />
 
@@ -152,12 +156,14 @@ function App() {
                 <Route path="/orders" element={user ? <OrderHistoryPage user={user} /> : <Navigate to="/login" />} />
                 <Route path="/order-lookup" element={<OrderLookupPage />} />
                 <Route path="/order-tracking/:id" element={user ? <OrderTrackingPage user={user} /> : <Navigate to="/login" />} />
+                <Route path="/momo-return" element={<MomoReturnPage />} />
                 <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage onLogin={handleLogin} />} />
                 <Route path="/register" element={user ? <Navigate to="/" /> : <RegisterPage onLogin={handleLogin} />} />
                 <Route path="/forgot-password" element={user ? <Navigate to="/" /> : <ForgotPasswordPage />} />
                 <Route path="/reset-password" element={user ? <Navigate to="/" /> : <ResetPasswordPage />} />
                 <Route path="/wishlist" element={user ? <WishlistPage user={user} addToCart={addToCart} /> : <Navigate to="/login" />} />
                 <Route path="/profile" element={user ? <ProfilePage user={user} onUserUpdate={setUser} /> : <Navigate to="/login" />} />
+                <Route path="/my-vouchers" element={user ? <MyVoucherPage user={user} /> : <Navigate to="/login" />} />
                 <Route path="/faq" element={<FAQPage />} />
               </Routes>
             </main>

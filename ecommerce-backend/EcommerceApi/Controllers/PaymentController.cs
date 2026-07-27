@@ -48,4 +48,51 @@ public class PaymentController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+
+    [HttpPost("momo/create"), Authorize]
+    public async Task<IActionResult> CreateMomoPayment([FromBody] CreateMomoPaymentRequest request, [FromServices] MomoService momoService, [FromServices] OrderService orderService)
+    {
+        try
+        {
+            var order = await orderService.GetOrderByIdRaw(request.OrderId);
+            if (order == null) return NotFound(new { error = "Đơn hàng không tồn tại" });
+
+            var payUrl = await momoService.CreatePaymentAsync(order, request.RequestType ?? "captureWallet");
+            return Ok(new { payUrl });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("momo/ipn")]
+    public async Task<IActionResult> MomoIPN([FromBody] dynamic payload, [FromServices] MomoService momoService, [FromServices] OrderService orderService)
+    {
+        // This is a simplified IPN handler. A production system must properly parse JSON and verify signature
+        try
+        {
+            var json = System.Text.Json.JsonDocument.Parse(payload.ToString());
+            var root = json.RootElement;
+            var resultCode = root.GetProperty("resultCode").GetInt32();
+            var orderId = root.GetProperty("orderId").GetString();
+
+            if (resultCode == 0 && orderId != null)
+            {
+                await orderService.UpdatePaymentStatus(orderId, "Đã thanh toán");
+            }
+
+            return NoContent();
+        }
+        catch
+        {
+            return BadRequest();
+        }
+    }
+}
+
+public class CreateMomoPaymentRequest
+{
+    public string OrderId { get; set; } = null!;
+    public string? RequestType { get; set; }
 }

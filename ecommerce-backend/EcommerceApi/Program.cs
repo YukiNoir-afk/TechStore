@@ -28,6 +28,9 @@ builder.Services.AddScoped<SupportService>();
 builder.Services.AddScoped<ProductQuestionService>();
 builder.Services.AddScoped<ProfileService>();
 builder.Services.AddScoped<LiveChatService>();
+builder.Services.AddScoped<VoucherService>();
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<MomoService>();
 
 // JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"]!;
@@ -51,8 +54,15 @@ builder.Services.AddAuthorization();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("http://localhost:3000", "http://localhost:5173")
-              .AllowAnyHeader().AllowAnyMethod().AllowCredentials());
+    {
+        var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
+            ?? new[] { "http://localhost:3000", "http://localhost:5173", "https://tech-store-zfhl.vercel.app" };
+            
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
 });
 
 // SignalR

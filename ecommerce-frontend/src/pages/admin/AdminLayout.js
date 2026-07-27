@@ -15,6 +15,7 @@ const AdminLayout = ({ user, children }) => {
     { path: '/admin/inventory', label: 'Kho', icon: '📦' },
     { path: '/admin/orders', label: 'Đơn hàng', icon: '🛒' },
     { path: '/admin/promo-codes', label: 'Mã khuyến mãi', icon: '🎟️' },
+    { path: '/admin/voucher-templates', label: 'Kho Voucher', icon: '🎁' },
     { path: '/admin/customer-care', label: 'Chăm sóc KH', icon: '💬' },
     { path: '/admin/users', label: 'Người dùng', icon: '👥' },
   ];

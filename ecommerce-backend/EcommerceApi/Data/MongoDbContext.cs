@@ -28,6 +28,8 @@ public class MongoDbContext
     public IMongoCollection<ProductQuestion> ProductQuestions => _database.GetCollection<ProductQuestion>("productQuestions");
     public IMongoCollection<ChatConversation> ChatConversations => _database.GetCollection<ChatConversation>("chatConversations");
     public IMongoCollection<ChatMessage> ChatMessages => _database.GetCollection<ChatMessage>("chatMessages");
+    public IMongoCollection<Voucher> Vouchers => _database.GetCollection<Voucher>("vouchers");
+    public IMongoCollection<VoucherTemplate> VoucherTemplates => _database.GetCollection<VoucherTemplate>("voucherTemplates");
 
     public async Task CreateIndexesAsync()
     {
@@ -110,5 +112,24 @@ public class MongoDbContext
         await ChatMessages.Indexes.CreateOneAsync(
             new CreateIndexModel<ChatMessage>(
                 Builders<ChatMessage>.IndexKeys.Ascending(m => m.ConversationId).Descending(m => m.CreatedAt)));
+
+        // Voucher: by userId + isUsed, unique code
+        await Vouchers.Indexes.CreateManyAsync(new[]
+        {
+            new CreateIndexModel<Voucher>(
+                Builders<Voucher>.IndexKeys.Ascending(v => v.UserId).Ascending(v => v.IsUsed)),
+            new CreateIndexModel<Voucher>(
+                Builders<Voucher>.IndexKeys.Ascending(v => v.Code),
+                new CreateIndexOptions { Unique = true })
+        });
+
+        // VoucherTemplate: by tierRequired + isActive
+        await VoucherTemplates.Indexes.CreateManyAsync(new[]
+        {
+            new CreateIndexModel<VoucherTemplate>(
+                Builders<VoucherTemplate>.IndexKeys.Ascending(vt => vt.TierRequired).Ascending(vt => vt.IsActive)),
+            new CreateIndexModel<VoucherTemplate>(
+                Builders<VoucherTemplate>.IndexKeys.Descending(vt => vt.CreatedAt))
+        });
     }
 }

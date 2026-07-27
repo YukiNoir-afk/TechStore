@@ -14,6 +14,34 @@ public class DashboardStatsDto
     public List<TopProductDto> TopProducts { get; set; } = new();
 }
 
+// ── Revenue Report ───────────────────────────────────────────────────
+public class RevenueReportDto
+{
+    public DateTime From { get; set; }
+    public DateTime To { get; set; }
+    public string? PaymentMethodFilter { get; set; }
+    public decimal TotalRevenue { get; set; }
+    public int TotalOrders { get; set; }
+    public decimal AverageOrderValue { get; set; }
+    public List<RevenueDailyDto> DailyBreakdown { get; set; } = new();
+    public List<RevenueByPaymentMethodDto> ByPaymentMethod { get; set; } = new();
+}
+
+public class RevenueDailyDto
+{
+    public string Date { get; set; } = string.Empty;
+    public decimal Revenue { get; set; }
+    public int OrderCount { get; set; }
+}
+
+public class RevenueByPaymentMethodDto
+{
+    public string PaymentMethod { get; set; } = string.Empty;
+    public decimal Revenue { get; set; }
+    public int OrderCount { get; set; }
+    public decimal Percentage { get; set; }
+}
+
 public class RecentOrderDto
 {
     public string Id { get; set; } = string.Empty;
@@ -112,6 +140,12 @@ public class AdminUserDto
 public class LockUserRequest
 {
     public string? Reason { get; set; }
+}
+
+// ── Admin Reset Password ─────────────────────────────────────────────
+public class AdminResetPasswordRequest
+{
+    public string NewPassword { get; set; } = string.Empty;
 }
 
 // ── Order History by Phone ───────────────────────────────────────────

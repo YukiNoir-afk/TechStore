@@ -64,7 +64,8 @@ const OrderTrackingPage = () => {
 
   const canCancel = (status) => {
     const s = status?.toLowerCase();
-    return s !== 'shipped' && s !== 'delivered' && s !== 'cancelled';
+    return s !== 'shipped' && s !== 'delivered' && s !== 'cancelled' && 
+           s !== 'đã hủy' && s !== 'đang giao' && s !== 'đã hoàn thành';
   };
 
   const showToast = (message, type = 'success') => {
@@ -92,8 +93,8 @@ const OrderTrackingPage = () => {
     setCancelling(true);
     try {
       await ordersApi.cancel(id);
-      showToast('Đã hủy đơn hàng thành công');
-      setTimeout(() => navigate('/orders'), 1500);
+      showToast('Đã hủy đơn hàng thành công. Email thông báo đã được gửi đến email của bạn.');
+      setTimeout(() => navigate('/orders'), 2000);
     } catch (err) {
       showToast(err.response?.data?.error || 'Không thể hủy đơn hàng', 'error');
     } finally {
@@ -121,8 +122,8 @@ const OrderTrackingPage = () => {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <h1 className="text-4xl font-bold font-heading text-text-primary">Đơn hàng #{order.id}</h1>
             <Badge variant={
-              order.status === 'Cancelled' ? 'danger' :
-              order.status === 'Delivered' ? 'success' : 'info'
+              (order.status === 'Cancelled' || order.status === 'Đã hủy') ? 'danger' :
+              (order.status === 'Delivered' || order.status === 'Đã hoàn thành') ? 'success' : 'info'
             } size="md">
               {translateStatus(order.status)}
             </Badge>
@@ -234,7 +235,7 @@ const OrderTrackingPage = () => {
             )}
 
             {/* Cancelled notice */}
-            {order.status === 'Cancelled' && (
+            {(order.status === 'Cancelled' || order.status === 'Đã hủy') && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <p className="text-sm text-red-700 font-medium">❌ Đơn hàng này đã bị hủy</p>
               </div>
