@@ -67,27 +67,30 @@ public class PaymentController : ControllerBase
     }
 
     [HttpPost("momo/ipn")]
-    public async Task<IActionResult> MomoIPN([FromBody] dynamic payload, [FromServices] MomoService momoService, [FromServices] OrderService orderService)
+    public async Task<IActionResult> MomoIPN([FromBody] MomoIpnRequest req, [FromServices] MomoService momoService, [FromServices] OrderService orderService, [FromServices] IConfiguration config)
     {
-        // This is a simplified IPN handler. A production system must properly parse JSON and verify signature
-        try
-        {
-            var json = System.Text.Json.JsonDocument.Parse(payload.ToString());
-            var root = json.RootElement;
-            var resultCode = root.GetProperty("resultCode").GetInt32();
-            var orderId = root.GetProperty("orderId").GetString();
+        var accessKey = config["MoMo:AccessKey"];
+        var rawHash = $"accessKey={accessKey}&amount={req.Amount}&extraData={req.ExtraData}" +
+            $"&message={req.Message}&orderId={req.OrderId}&orderInfo={req.OrderInfo}" +
+            $"&orderType={req.OrderType}&partnerCode={req.PartnerCode}&payType={req.PayType}" +
+            $"&requestId={req.RequestId}&responseTime={req.ResponseTime}" +
+            $"&resultCode={req.ResultCode}&transId={req.TransId}";
 
-            if (resultCode == 0 && orderId != null)
-            {
-                await orderService.UpdatePaymentStatus(orderId, "Đã thanh toán");
-            }
+        if (!momoService.VerifySignature(rawHash, req.Signature))
+            return Unauthorized(); // Invalid signature
 
-            return NoContent();
-        }
-        catch
+        var order = await orderService.GetOrderByIdRaw(req.OrderId);
+        if (order == null) return NotFound();
+
+        // Prevent double-processing and amount mismatch
+        if ((long)order.Total != req.Amount) return BadRequest();
+
+        if (req.ResultCode == 0)
         {
-            return BadRequest();
+            await orderService.UpdatePaymentStatus(req.OrderId, "Đã thanh toán");
         }
+
+        return NoContent();
     }
 }
 
@@ -95,4 +98,21 @@ public class CreateMomoPaymentRequest
 {
     public string OrderId { get; set; } = null!;
     public string? RequestType { get; set; }
+}
+
+public class MomoIpnRequest
+{
+    public string PartnerCode { get; set; } = "";
+    public string OrderId { get; set; } = "";
+    public string RequestId { get; set; } = "";
+    public long Amount { get; set; }
+    public string OrderInfo { get; set; } = "";
+    public string OrderType { get; set; } = "";
+    public long TransId { get; set; }
+    public int ResultCode { get; set; }
+    public string Message { get; set; } = "";
+    public string PayType { get; set; } = "";
+    public long ResponseTime { get; set; }
+    public string ExtraData { get; set; } = "";
+    public string Signature { get; set; } = "";
 }

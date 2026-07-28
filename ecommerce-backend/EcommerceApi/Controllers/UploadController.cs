@@ -8,7 +8,7 @@ public class UploadController : ControllerBase
 {
     private readonly IWebHostEnvironment _env;
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp" };
+        { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
     private const long MaxFileSize = 5 * 1024 * 1024; // 5MB
 
     public UploadController(IWebHostEnvironment env) { _env = env; }

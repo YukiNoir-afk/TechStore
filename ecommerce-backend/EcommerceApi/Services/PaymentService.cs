@@ -45,21 +45,25 @@ public class PaymentService
     /// <summary>
     /// Verify a PaymentIntent is actually paid (called before creating order).
     /// </summary>
-    public async Task<bool> VerifyPayment(string paymentIntentId)
+    public async Task<bool> VerifyPayment(string paymentIntentId, decimal expectedAmount, string currency = "vnd")
     {
         // Skip verification in test mode if key not configured
         var secretKey = _config["Stripe:SecretKey"];
         if (string.IsNullOrEmpty(secretKey) || secretKey.Contains("YOUR_STRIPE"))
         {
-            _logger.LogWarning("Stripe not configured – skipping payment verification for {Id}", paymentIntentId);
-            return true;
+            _logger.LogError("Stripe chưa được cấu hình - từ chối xác thực thanh toán");
+            return false;
         }
 
         try
         {
             var service = new PaymentIntentService();
             var intent = await service.GetAsync(paymentIntentId);
-            return intent.Status == "succeeded";
+            var expectedCents = (long)Math.Round(expectedAmount * 100);
+            
+            return intent.Status == "succeeded" 
+                && intent.Amount == expectedCents
+                && string.Equals(intent.Currency, currency, StringComparison.OrdinalIgnoreCase);
         }
         catch (StripeException ex)
         {

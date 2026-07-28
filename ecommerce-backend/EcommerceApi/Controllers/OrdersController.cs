@@ -38,14 +38,17 @@ public class OrdersController : ControllerBase
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
 
-    [HttpGet("lookup-by-phone"), AllowAnonymous]
-    public async Task<IActionResult> LookupByPhone([FromQuery] string phone)
+    [HttpGet("lookup"), AllowAnonymous]
+    public async Task<IActionResult> LookupOrder([FromQuery] string phone, [FromQuery] string orderId)
     {
-        if (string.IsNullOrWhiteSpace(phone))
-            return BadRequest(new { error = "Vui lòng nhập số điện thoại" });
+        if (string.IsNullOrWhiteSpace(phone) || string.IsNullOrWhiteSpace(orderId))
+            return BadRequest(new { error = "Vui lòng nhập số điện thoại và mã đơn hàng" });
 
-        try { return Ok(await _orders.GetOrderHistoryByPhone(phone)); }
-        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        var order = await _orders.GetOrderDetail(null, orderId);
+        if (order == null || order.Shipping?.Phone?.Replace(" ", "") != phone.Replace(" ", ""))
+            return NotFound(new { error = "Không tìm thấy đơn hàng" });
+
+        return Ok(order);
     }
 }
 

@@ -18,17 +18,20 @@ public class ExceptionMiddleware
         {
             _logger.LogError(ex, "Unhandled exception: {Message}", ex.Message);
             context.Response.ContentType = "application/json";
-            context.Response.StatusCode = ex switch
+
+            var (status, message) = ex switch
             {
-                KeyNotFoundException => (int)HttpStatusCode.NotFound,
-                UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
-                InvalidOperationException => (int)HttpStatusCode.BadRequest,
-                _ => (int)HttpStatusCode.InternalServerError
+                KeyNotFoundException => (HttpStatusCode.NotFound, ex.Message),
+                UnauthorizedAccessException => (HttpStatusCode.Unauthorized, ex.Message),
+                InvalidOperationException => (HttpStatusCode.BadRequest, ex.Message),
+                _ => (HttpStatusCode.InternalServerError, "Đã có lỗi xảy ra. Vui lòng thử lại sau.")
             };
+
+            context.Response.StatusCode = (int)status;
             await context.Response.WriteAsync(JsonSerializer.Serialize(new
             {
-                error = ex.Message,
-                statusCode = context.Response.StatusCode
+                error = message,
+                statusCode = (int)status
             }));
         }
     }

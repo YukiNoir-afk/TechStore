@@ -44,12 +44,7 @@ public class OrderService
                 throw new InvalidOperationException($"Không đủ hàng trong kho cho {product.Name}");
         }
 
-        // Verify Stripe payment if PaymentIntentId provided
-        if (request.PaymentMethod == "credit" && !string.IsNullOrEmpty(request.PaymentIntentId))
-        {
-            var paid = await _payment.VerifyPayment(request.PaymentIntentId);
-            if (!paid) throw new InvalidOperationException("Thanh toán chưa được xác nhận. Vui lòng thử lại.");
-        }
+        // (Stripe payment verification moved to after total calculation)
 
         var subtotal = cartItems.Sum(ci => productMap[ci.ProductId].Price * ci.Quantity);
         var tax = Math.Round(subtotal * 0.1m, 2);
@@ -85,6 +80,13 @@ public class OrderService
 
         var total = subtotal - discountAmount + tax + shipping;
         if (total < 0) total = 0;
+
+        // Verify Stripe payment if PaymentIntentId provided
+        if (request.PaymentMethod == "credit" && !string.IsNullOrEmpty(request.PaymentIntentId))
+        {
+            var paid = await _payment.VerifyPayment(request.PaymentIntentId, total, "vnd");
+            if (!paid) throw new InvalidOperationException("Thanh toán không hợp lệ (có thể sai số tiền hoặc thanh toán chưa thành công).");
+        }
 
         string paymentStatus = request.PaymentMethod switch
         {
@@ -122,14 +124,34 @@ public class OrderService
             }
         };
 
-        await _db.Orders.InsertOneAsync(order);
-
-        // Reduce stock
-        foreach (var ci in cartItems)
+        // Reduce stock atomically before inserting order
+        var successfulReductions = new List<CartItem>();
+        try
         {
-            await _db.Products.UpdateOneAsync(
-                p => p.Id == ci.ProductId,
-                Builders<Product>.Update.Inc(p => p.Stock, -ci.Quantity));
+            foreach (var ci in cartItems)
+            {
+                var result = await _db.Products.UpdateOneAsync(
+                    p => p.Id == ci.ProductId && p.Stock >= ci.Quantity,
+                    Builders<Product>.Update.Inc(p => p.Stock, -ci.Quantity));
+                
+                if (result.ModifiedCount == 0)
+                    throw new InvalidOperationException($"Sản phẩm {productMap[ci.ProductId].Name} không đủ hàng trong kho");
+                
+                successfulReductions.Add(ci);
+            }
+
+            await _db.Orders.InsertOneAsync(order);
+        }
+        catch
+        {
+            // Rollback successful reductions
+            foreach (var ci in successfulReductions)
+            {
+                await _db.Products.UpdateOneAsync(
+                    p => p.Id == ci.ProductId,
+                    Builders<Product>.Update.Inc(p => p.Stock, ci.Quantity));
+            }
+            throw;
         }
 
         // Clear cart
