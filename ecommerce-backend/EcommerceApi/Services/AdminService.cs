@@ -18,7 +18,7 @@ public class AdminService
 
         var totalRevenue = allOrders.Where(o => o.Status != "Cancelled").Sum(o => o.Total);
 
-        var orderCounts = allOrders.GroupBy(o => o.Status)
+        var orderCounts = allOrders.GroupBy(o => o.Status ?? "Unknown")
             .ToDictionary(g => g.Key, g => g.Count());
 
         int Count(string s) => orderCounts.GetValueOrDefault(s, 0);
@@ -32,7 +32,7 @@ public class AdminService
 
         var recentOrderDtos = recentOrders.Select(o =>
         {
-            var user = userMap.GetValueOrDefault(o.UserId);
+            var user = !string.IsNullOrEmpty(o.UserId) ? userMap.GetValueOrDefault(o.UserId) : null;
             return new RecentOrderDto
             {
                 Id = o.Id,
@@ -162,7 +162,7 @@ public class AdminService
 
         return orders.Select(o =>
         {
-            var user = userMap.GetValueOrDefault(o.UserId);
+            var user = !string.IsNullOrEmpty(o.UserId) ? userMap.GetValueOrDefault(o.UserId) : null;
             return new AdminOrderDto
             {
                 Id = o.Id,

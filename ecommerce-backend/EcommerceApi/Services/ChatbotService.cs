@@ -183,7 +183,7 @@ public class ChatbotService
 
         var orderInfo = string.Join("\n\n", orders.Select(o =>
         {
-            var status = statusMap.GetValueOrDefault(o.Status, o.Status);
+            var status = !string.IsNullOrEmpty(o.Status) ? statusMap.GetValueOrDefault(o.Status, o.Status) : "Unknown";
             return $"📋 Đơn #{o.Id[^6..]}\n" +
                    $"   Trạng thái: {status}\n" +
                    $"   Tổng tiền: {o.Total:N0}₫\n" +

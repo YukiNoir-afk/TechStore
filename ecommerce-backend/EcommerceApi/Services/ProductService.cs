@@ -125,17 +125,24 @@ public class ProductService
     public async Task<List<CategoryDto>> GetCategories()
     {
         var categories = await _db.Categories.Find(_ => true).ToListAsync();
-        var result = new List<CategoryDto>();
+        
+        var productCounts = await _db.Products.Aggregate()
+            .Match(p => p.IsActive)
+            .Group(p => p.CategoryId, g => new { CategoryId = g.Key, Count = g.Count() })
+            .ToListAsync();
+            
+        var countDict = productCounts.ToDictionary(x => x.CategoryId, x => x.Count);
 
-        foreach (var c in categories)
+        var result = categories.Select(c => new CategoryDto
         {
-            var productCount = await _db.Products.CountDocumentsAsync(p => p.CategoryId == c.Id && p.IsActive);
-            result.Add(new CategoryDto
-            {
-                Id = c.Id, Name = c.Name, Slug = c.Slug, Description = c.Description,
-                ImageUrl = c.ImageUrl, ProductCount = (int)productCount
-            });
-        }
+            Id = c.Id, 
+            Name = c.Name, 
+            Slug = c.Slug, 
+            Description = c.Description,
+            ImageUrl = c.ImageUrl, 
+            ProductCount = countDict.ContainsKey(c.Id) ? countDict[c.Id] : 0
+        }).ToList();
+
         return result;
     }
 
