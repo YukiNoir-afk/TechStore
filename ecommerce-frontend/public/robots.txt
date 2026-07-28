@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /profile
+Disallow: /orders
+Disallow: /cart
+Disallow: /checkout
+
+Sitemap: https://tech-store-zfhl.vercel.app/sitemap.xml
