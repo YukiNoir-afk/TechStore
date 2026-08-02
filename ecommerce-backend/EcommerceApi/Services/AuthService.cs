@@ -32,7 +32,11 @@ public class AuthService
         await _db.Users.InsertOneAsync(user);
 
         // Send Welcome Email
-        _ = _emailService.SendWelcomeEmailAsync(user);
+        _ = Task.Run(async () => 
+        {
+            try { await _emailService.SendWelcomeEmailAsync(user); } 
+            catch (Exception ex) { Console.WriteLine($"Email error: {ex.Message}"); }
+        });
 
         return new LoginResponse { Token = GenerateToken(user), User = MapUser(user) };
     }

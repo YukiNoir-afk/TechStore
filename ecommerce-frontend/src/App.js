@@ -21,6 +21,7 @@ import WishlistPage from './pages/WishlistPage';
 import ProfilePage from './pages/ProfilePage';
 import MyVoucherPage from './pages/MyVoucherPage';
 import MomoReturnPage from './pages/MomoReturnPage';
+import VnPayReturnPage from './pages/VnPayReturnPage';
 import FAQPage from './pages/FAQPage';
 import Chatbot from './components/Chatbot';
 import AdminLayout from './pages/admin/AdminLayout';
@@ -209,6 +210,7 @@ function App() {
                 <Route path="/order-lookup" element={<OrderLookupPage />} />
                 <Route path="/order-tracking/:id" element={user ? <OrderTrackingPage user={user} /> : <Navigate to="/login" />} />
                 <Route path="/momo-return" element={<MomoReturnPage />} />
+                <Route path="/vnpay-return" element={<VnPayReturnPage />} />
                 <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage onLogin={handleLogin} />} />
                 <Route path="/register" element={user ? <Navigate to="/" /> : <RegisterPage onLogin={handleLogin} />} />
                 <Route path="/forgot-password" element={user ? <Navigate to="/" /> : <ForgotPasswordPage />} />

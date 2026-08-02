@@ -5,11 +5,26 @@ import Spinner from '../components/Spinner';
 import { ordersApi } from '../utils/api';
 import { formatPrice } from '../utils/formatPrice';
 
+const STATUS_FILTERS = [
+  { label: 'Tất cả', value: 'all', matches: [] },
+  { label: 'Chờ xử lý', value: 'pending', matches: ['pending', 'chờ xử lý'] },
+  { label: 'Đang xử lý', value: 'processing', matches: ['processing', 'đang xử lý'] },
+  { label: 'Đang giao', value: 'shipped', matches: ['shipped', 'đang vận chuyển', 'đang giao'] },
+  { label: 'Đã hoàn thành', value: 'delivered', matches: ['delivered', 'đã giao', 'đã hoàn thành'] },
+  { label: 'Đã hủy', value: 'cancelled', matches: ['cancelled', 'đã hủy'] },
+];
+
+const matchesFilter = (orderStatus, filter) => {
+  if (filter.value === 'all') return true;
+  return filter.matches.includes(orderStatus.toLowerCase());
+};
+
 const OrderHistoryPage = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState(null);
   const [toast, setToast] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -24,6 +39,11 @@ const OrderHistoryPage = () => {
     };
     fetchOrders();
   }, []);
+
+  const activeFilter = STATUS_FILTERS.find(f => f.value === statusFilter) || STATUS_FILTERS[0];
+  const filteredOrders = statusFilter === 'all'
+    ? orders
+    : orders.filter(o => matchesFilter(o.status, activeFilter));
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -74,7 +94,65 @@ const OrderHistoryPage = () => {
   return (
     <div className="bg-background min-h-screen py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-4xl font-bold font-heading text-text-primary mb-8">Lịch sử đơn hàng</h1>
+        <h1 className="text-4xl font-bold font-heading text-text-primary mb-6">Lịch sử đơn hàng</h1>
+
+        {/* Status Filter */}
+        <div className="mb-6 flex flex-wrap gap-2">
+          {STATUS_FILTERS.map((filter) => {
+            const count = filter.value === 'all'
+              ? orders.length
+              : orders.filter(o => matchesFilter(o.status, filter)).length;
+            return (
+              <button
+                key={filter.value}
+                onClick={() => setStatusFilter(filter.value)}
+                className="order-filter-btn"
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '9999px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  border: '2px solid',
+                  borderColor: statusFilter === filter.value ? '#4f46e5' : '#e5e7eb',
+                  backgroundColor: statusFilter === filter.value ? '#4f46e5' : '#ffffff',
+                  color: statusFilter === filter.value ? '#ffffff' : '#6b7280',
+                  cursor: 'pointer',
+                  transition: 'all 0.25s ease',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: statusFilter === filter.value ? '0 2px 8px rgba(79, 70, 229, 0.3)' : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (statusFilter !== filter.value) {
+                    e.target.style.borderColor = '#a5b4fc';
+                    e.target.style.color = '#4f46e5';
+                    e.target.style.backgroundColor = '#eef2ff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (statusFilter !== filter.value) {
+                    e.target.style.borderColor = '#e5e7eb';
+                    e.target.style.color = '#6b7280';
+                    e.target.style.backgroundColor = '#ffffff';
+                  }
+                }}
+              >
+                {filter.label}
+                <span style={{
+                  backgroundColor: statusFilter === filter.value ? 'rgba(255,255,255,0.25)' : '#f3f4f6',
+                  color: statusFilter === filter.value ? '#ffffff' : '#9ca3af',
+                  borderRadius: '9999px',
+                  padding: '1px 8px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  minWidth: '22px',
+                  textAlign: 'center',
+                }}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
 
         {/* Toast */}
         {toast && (
@@ -86,8 +164,9 @@ const OrderHistoryPage = () => {
         )}
 
         {orders.length > 0 ? (
+          filteredOrders.length > 0 ? (
           <div className="space-y-4">
-            {orders.map((order) => (
+            {filteredOrders.map((order) => (
               <Link key={order.id} to={`/order-tracking/${order.id}`} className="block">
                 <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -143,6 +222,17 @@ const OrderHistoryPage = () => {
               </Link>
             ))}
           </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-md p-12 text-center">
+              <div className="text-6xl mb-4">🔍</div>
+              <h2 className="text-2xl font-bold text-text-primary mb-2">Không tìm thấy đơn hàng</h2>
+              <p className="text-text-secondary mb-6">Không có đơn hàng nào với trạng thái đã chọn</p>
+              <button
+                onClick={() => setStatusFilter('all')}
+                className="bg-primary-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-primary-700 transition-colors"
+              >Xem tất cả đơn hàng</button>
+            </div>
+          )
         ) : (
           <div className="bg-white rounded-lg shadow-md p-12 text-center">
             <div className="text-6xl mb-4">📦</div>

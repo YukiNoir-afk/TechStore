@@ -40,6 +40,13 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> GetOrders([FromQuery] string? status = null)
         => Ok(await _admin.GetAllOrders(status));
 
+    [HttpGet("orders/{id}")]
+    public async Task<IActionResult> GetOrderDetail(string id)
+    {
+        try { return Ok(await _admin.GetOrderDetail(id)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+    }
+
     [HttpPut("orders/{id}/status")]
     public async Task<IActionResult> UpdateOrderStatus(string id, [FromBody] UpdateOrderStatusRequest request)
     {

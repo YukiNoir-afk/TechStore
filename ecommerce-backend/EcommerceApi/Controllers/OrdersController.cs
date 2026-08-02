@@ -50,5 +50,45 @@ public class OrdersController : ControllerBase
 
         return Ok(order);
     }
+
+    [HttpGet("lookup-by-phone"), AllowAnonymous]
+    public async Task<IActionResult> LookupOrderByPhone([FromQuery] string phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+            return BadRequest(new { error = "Vui lòng nhập số điện thoại" });
+
+        try
+        {
+            var result = await _orders.GetOrderHistoryByPhone(phone);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/cancel-payment"), AllowAnonymous]
+    public async Task<IActionResult> CancelPaymentOrder(string id)
+    {
+        try 
+        { 
+            var order = await _orders.GetOrderByIdRaw(id);
+            if (order != null && (order.PaymentStatus == "Chờ thanh toán" || order.Status == "Đang xử lý"))
+            {
+                await _orders.CancelOrderSystem(id, "Người dùng hủy hoặc thanh toán thất bại");
+                return Ok();
+            }
+            return BadRequest(new { error = "Không thể hủy đơn hàng này" });
+        }
+        catch (Exception ex) 
+        { 
+            return BadRequest(new { error = ex.Message }); 
+        }
+    }
 }
 

@@ -30,7 +30,9 @@ builder.Services.AddScoped<ProfileService>();
 builder.Services.AddScoped<LiveChatService>();
 builder.Services.AddScoped<VoucherService>();
 builder.Services.AddHttpClient();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<MomoService>();
+builder.Services.AddScoped<VnPayService>();
 
 // JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"]!;

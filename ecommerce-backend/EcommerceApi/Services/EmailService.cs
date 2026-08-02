@@ -19,7 +19,7 @@ public class EmailService
     // ── Order Confirmation ──────────────────────────────────────────────
     public async Task SendOrderConfirmationAsync(Order order, User user)
     {
-        var subject = $"✅ Xác nhận đơn hàng #{order.Id} – TechStore";
+        var subject = $"[Thông báo] Đặt hàng thành công – Đơn hàng #{order.Id}";
         var body = BuildOrderConfirmationHtml(order, user);
         await SendAsync(user.Email, $"{user.FirstName} {user.LastName}", subject, body);
     }
@@ -27,7 +27,7 @@ public class EmailService
     // ── Welcome Email ──────────────────────────────────────────────────────────
     public async Task SendWelcomeEmailAsync(User user)
     {
-        var subject = "🎉 Chào mừng bạn đến với TechStore";
+        var subject = "[Thông báo] Đăng ký tài khoản thành công – TechStore";
         var body = BuildWelcomeEmailHtml(user);
         await SendAsync(user.Email, $"{user.FirstName} {user.LastName}", subject, body);
     }
@@ -53,7 +53,7 @@ public class EmailService
             _            => ("📋", order.Status)
         };
 
-        var subject = $"{emoji} Cập nhật đơn hàng #{order.Id}: {statusVi}";
+        var subject = $"[Thông báo] Cập nhật trạng thái đơn hàng #{order.Id} - {statusVi}";
         var body = BuildStatusUpdateHtml(order, user, statusVi, emoji);
         await SendAsync(user.Email, $"{user.FirstName} {user.LastName}", subject, body);
     }
@@ -61,7 +61,7 @@ public class EmailService
     // ── Order Cancellation ────────────────────────────────────────────────
     public async Task SendOrderCancellationAsync(Order order, User user)
     {
-        var subject = $"❌ Đơn hàng #{order.Id} đã bị hủy – TechStore";
+        var subject = $"[Thông báo] Đơn hàng #{order.Id} đã bị hủy";
         var body = BuildOrderCancellationHtml(order, user);
         await SendAsync(user.Email, $"{user.FirstName} {user.LastName}", subject, body);
     }

@@ -17,6 +17,7 @@ public class ExceptionMiddleware
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception: {Message}", ex.Message);
+            System.IO.File.AppendAllText(@"D:\Thuong Mai Dien Tu\error.log", ex.ToString() + Environment.NewLine);
             context.Response.ContentType = "application/json";
 
             var (status, message) = ex switch

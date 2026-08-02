@@ -94,6 +94,7 @@ public class OrderService
             "cod" => "Chưa thanh toán",
             "momo_qr" => "Chờ thanh toán",
             "momo_atm" => "Chờ thanh toán",
+            "vnpay" => "Chờ thanh toán",
             _ => "Chưa thanh toán"
         };
 
@@ -169,7 +170,9 @@ public class OrderService
 
         if (user != null)
         {
-            _ = _email.SendOrderConfirmationAsync(order, user); // fire-and-forget
+            _ = Task.Run(async () => {
+                try { await _email.SendOrderConfirmationAsync(order, user); } catch (Exception ex) { Console.WriteLine($"Email error: {ex.Message}"); }
+            });
             
             // Add Loyalty points
             int points = (int)Math.Floor(total);
@@ -182,13 +185,15 @@ public class OrderService
 
             // Auto-grant voucher when tier changes
             if (newTier != oldTier)
-                _ = _voucher.AutoGrantTierUpVoucher(userId, newTier);
+                await _voucher.AutoGrantTierUpVoucher(userId, newTier);
         }
         else if (!string.IsNullOrEmpty(request.Email))
         {
             // Fallback for guest confirmation email
             var guestUser = new User { Email = request.Email, FirstName = request.FirstName, LastName = request.LastName };
-            _ = _email.SendOrderConfirmationAsync(order, guestUser);
+            _ = Task.Run(async () => {
+                try { await _email.SendOrderConfirmationAsync(order, guestUser); } catch (Exception ex) { Console.WriteLine($"Email error: {ex.Message}"); }
+            });
         }
 
         return await GetOrderDetail(userId, order.Id) ?? throw new Exception("Tạo đơn hàng thất bại");
@@ -222,7 +227,30 @@ public class OrderService
             // Reload order with updated status for email template
             var updatedOrder = await _db.Orders.Find(o => o.Id == orderId).FirstOrDefaultAsync();
             if (updatedOrder != null)
-                _ = _email.SendOrderCancellationAsync(updatedOrder, user); // fire-and-forget
+            {
+                _ = Task.Run(async () => {
+                    try { await _email.SendOrderCancellationAsync(updatedOrder, user); } catch { }
+                });
+            }
+        }
+    }
+
+    public async Task CancelOrderSystem(string orderId, string reason)
+    {
+        var order = await _db.Orders.Find(o => o.Id == orderId).FirstOrDefaultAsync()
+            ?? throw new KeyNotFoundException("Không tìm thấy đơn hàng");
+
+        if (order.Status == "Đã hủy") return;
+
+        var history = new OrderStatusHistory { Status = "Đã hủy", Description = reason };
+        var update = Builders<Order>.Update.Set(o => o.Status, "Đã hủy").Push(o => o.StatusHistory, history).Set(o => o.UpdatedAt, DateTime.UtcNow);
+        
+        await _db.Orders.UpdateOneAsync(o => o.Id == orderId, update);
+
+        // Refund stock
+        foreach (var item in order.Items)
+        {
+            await _db.Products.UpdateOneAsync(p => p.Id == item.ProductId, Builders<Product>.Update.Inc(p => p.Stock, item.Quantity));
         }
     }
 

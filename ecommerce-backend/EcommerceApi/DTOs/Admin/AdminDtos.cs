@@ -25,6 +25,7 @@ public class RevenueReportDto
     public decimal AverageOrderValue { get; set; }
     public List<RevenueDailyDto> DailyBreakdown { get; set; } = new();
     public List<RevenueByPaymentMethodDto> ByPaymentMethod { get; set; } = new();
+    public List<AdminOrderDto> Orders { get; set; } = new();
 }
 
 public class RevenueDailyDto
@@ -75,6 +76,55 @@ public class AdminOrderDto
     public string? TrackingNumber { get; set; }
     public int ItemCount { get; set; }
     public DateTime Date { get; set; }
+}
+
+public class AdminOrderDetailDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public string CustomerEmail { get; set; } = string.Empty;
+    public string? CustomerPhone { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public decimal Subtotal { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public decimal Tax { get; set; }
+    public decimal ShippingCost { get; set; }
+    public decimal Total { get; set; }
+    public string PaymentMethod { get; set; } = string.Empty;
+    public string PaymentStatus { get; set; } = string.Empty;
+    public string? ShippingName { get; set; }
+    public string? ShippingAddress { get; set; }
+    public string? ShippingCity { get; set; }
+    public string? ShippingState { get; set; }
+    public string? ShippingZipCode { get; set; }
+    public string? ShippingCountry { get; set; }
+    public string? ShippingEmail { get; set; }
+    public string? ShippingPhone { get; set; }
+    public string ShippingMethod { get; set; } = string.Empty;
+    public string? TrackingNumber { get; set; }
+    public string? Carrier { get; set; }
+    public DateTime? EstimatedDelivery { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public List<AdminOrderItemDto> Items { get; set; } = new();
+    public List<AdminOrderStatusHistoryDto> StatusHistory { get; set; } = new();
+}
+
+public class AdminOrderItemDto
+{
+    public string ProductId { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public string? ProductImage { get; set; }
+    public int Quantity { get; set; }
+    public decimal Price { get; set; }
+}
+
+public class AdminOrderStatusHistoryDto
+{
+    public string Status { get; set; } = string.Empty;
+    public string? Location { get; set; }
+    public string? Description { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public class UpdateOrderStatusRequest

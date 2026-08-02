@@ -92,6 +92,49 @@ public class PaymentController : ControllerBase
 
         return NoContent();
     }
+    [HttpPost("vnpay/create"), AllowAnonymous]
+    public async Task<IActionResult> CreateVnPayPayment([FromBody] CreateVnPayPaymentRequest request, [FromServices] VnPayService vnPayService, [FromServices] OrderService orderService)
+    {
+        try
+        {
+            var order = await orderService.GetOrderByIdRaw(request.OrderId);
+            if (order == null) return NotFound(new { error = "Đơn hàng không tồn tại" });
+
+            var payUrl = vnPayService.CreatePaymentUrl(order);
+            return Ok(new { payUrl });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("vnpay/callback"), AllowAnonymous]
+    public async Task<IActionResult> VnPayCallback([FromServices] VnPayService vnPayService, [FromServices] OrderService orderService)
+    {
+        var result = vnPayService.ValidateCallback(Request.Query);
+
+        if (!result.IsSuccess)
+            return BadRequest(new { error = "Xác thực chữ ký VNPay thất bại" });
+
+        if (string.IsNullOrEmpty(result.OrderId))
+            return BadRequest(new { error = "Không tìm thấy mã đơn hàng" });
+
+        var order = await orderService.GetOrderByIdRaw(result.OrderId);
+        if (order == null) return NotFound(new { error = "Đơn hàng không tồn tại" });
+
+        if (result.ResponseCode == "00")
+        {
+            await orderService.UpdatePaymentStatus(result.OrderId, "Đã thanh toán");
+        }
+        else
+        {
+            await orderService.CancelOrderSystem(result.OrderId, "Thanh toán VNPay thất bại hoặc bị hủy");
+        }
+        
+        // Frontend redirect handles user feedback, so returning JSON here is fine for IPN
+        return Ok(new { success = true, result });
+    }
 }
 
 public class CreateMomoPaymentRequest
@@ -115,4 +158,9 @@ public class MomoIpnRequest
     public long ResponseTime { get; set; }
     public string ExtraData { get; set; } = "";
     public string Signature { get; set; } = "";
+}
+
+public class CreateVnPayPaymentRequest
+{
+    public string OrderId { get; set; } = null!;
 }

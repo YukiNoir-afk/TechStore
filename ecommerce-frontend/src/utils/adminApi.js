@@ -23,6 +23,7 @@ export const adminApi = {
 
   // Orders
   getOrders: (status) => adminAxios.get('/orders', { params: status ? { status } : {} }),
+  getOrderDetail: (id) => adminAxios.get(`/orders/${id}`),
   updateOrderStatus: (id, data) => adminAxios.put(`/orders/${id}/status`, data),
 
   // Products

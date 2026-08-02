@@ -132,6 +132,29 @@ public class AdminService
             .OrderByDescending(x => x.Revenue)
             .ToList();
 
+        // Individual orders for detail view
+        var userIds = orders.Select(o => o.UserId).Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList();
+        var users = await _db.Users.Find(u => userIds.Contains(u.Id)).ToListAsync();
+        var userMap = users.ToDictionary(u => u.Id);
+
+        var orderDtos = orders.Select(o =>
+        {
+            var user = !string.IsNullOrEmpty(o.UserId) ? userMap.GetValueOrDefault(o.UserId) : null;
+            return new AdminOrderDto
+            {
+                Id = o.Id,
+                CustomerName = user != null ? $"{user.FirstName} {user.LastName}" : "Unknown",
+                CustomerEmail = user?.Email ?? "",
+                Total = o.Total,
+                Status = o.Status,
+                PaymentStatus = o.PaymentStatus,
+                ShippingMethod = o.ShippingMethod,
+                TrackingNumber = o.TrackingNumber,
+                ItemCount = o.Items.Count,
+                Date = o.CreatedAt
+            };
+        }).ToList();
+
         return new RevenueReportDto
         {
             From = from,
@@ -141,7 +164,8 @@ public class AdminService
             TotalOrders = totalOrders,
             AverageOrderValue = avgOrderValue,
             DailyBreakdown = daily,
-            ByPaymentMethod = byPayment
+            ByPaymentMethod = byPayment,
+            Orders = orderDtos
         };
     }
 
@@ -179,6 +203,61 @@ public class AdminService
         }).ToList();
     }
 
+    public async Task<AdminOrderDetailDto> GetOrderDetail(string orderId)
+    {
+        var order = await _db.Orders.Find(o => o.Id == orderId).FirstOrDefaultAsync()
+            ?? throw new KeyNotFoundException("Không tìm thấy đơn hàng");
+
+        var user = !string.IsNullOrEmpty(order.UserId)
+            ? await _db.Users.Find(u => u.Id == order.UserId).FirstOrDefaultAsync()
+            : null;
+
+        return new AdminOrderDetailDto
+        {
+            Id = order.Id,
+            CustomerName = user != null ? $"{user.FirstName} {user.LastName}" : "Unknown",
+            CustomerEmail = user?.Email ?? "",
+            CustomerPhone = user?.Phone,
+            Status = order.Status,
+            Subtotal = order.Subtotal,
+            DiscountAmount = order.DiscountAmount,
+            Tax = order.Tax,
+            ShippingCost = order.ShippingCost,
+            Total = order.Total,
+            PaymentMethod = order.PaymentMethod,
+            PaymentStatus = order.PaymentStatus,
+            ShippingName = order.ShippingName,
+            ShippingAddress = order.ShippingAddress,
+            ShippingCity = order.ShippingCity,
+            ShippingState = order.ShippingState,
+            ShippingZipCode = order.ShippingZipCode,
+            ShippingCountry = order.ShippingCountry,
+            ShippingEmail = order.ShippingEmail,
+            ShippingPhone = order.ShippingPhone,
+            ShippingMethod = order.ShippingMethod,
+            TrackingNumber = order.TrackingNumber,
+            Carrier = order.Carrier,
+            EstimatedDelivery = order.EstimatedDelivery,
+            CreatedAt = order.CreatedAt,
+            UpdatedAt = order.UpdatedAt,
+            Items = order.Items.Select(i => new AdminOrderItemDto
+            {
+                ProductId = i.ProductId,
+                ProductName = i.ProductName,
+                ProductImage = i.ProductImage,
+                Quantity = i.Quantity,
+                Price = i.Price
+            }).ToList(),
+            StatusHistory = order.StatusHistory.OrderByDescending(h => h.CreatedAt).Select(h => new AdminOrderStatusHistoryDto
+            {
+                Status = h.Status,
+                Location = h.Location,
+                Description = h.Description,
+                CreatedAt = h.CreatedAt
+            }).ToList()
+        };
+    }
+
     public async Task<AdminOrderDto> UpdateOrderStatus(string orderId, UpdateOrderStatusRequest request)
     {
         var order = await _db.Orders.Find(o => o.Id == orderId).FirstOrDefaultAsync()
@@ -204,7 +283,11 @@ public class AdminService
 
         // Send email notification
         if (user != null)
-            _ = _email.SendOrderStatusUpdateAsync(order!, user); // fire-and-forget
+        {
+            _ = Task.Run(async () => {
+                try { await _email.SendOrderStatusUpdateAsync(order!, user); } catch { }
+            });
+        }
 
         return new AdminOrderDto
         {

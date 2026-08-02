@@ -57,6 +57,7 @@ export const ordersApi = {
   getAll: () => api.get('/orders'),
   getById: (id) => api.get(`/orders/${id}`),
   cancel: (id) => api.put(`/orders/${id}/cancel`),
+  cancelPaymentOrder: (id) => api.post(`/orders/${id}/cancel-payment`),
   lookupByPhone: (phone) => api.get('/orders/lookup-by-phone', { params: { phone } }),
 };
 
@@ -80,6 +81,7 @@ export const paymentsApi = {
     api.post('/payments/create-intent', { amount, currency }),
   getConfig: () => api.get('/payments/config'),
   createMomoPayment: (orderId, requestType) => api.post('/payments/momo/create', { orderId, requestType }),
+  createVnPayPayment: (orderId) => api.post('/payments/vnpay/create', { orderId }),
 };
 
 // Chatbot API

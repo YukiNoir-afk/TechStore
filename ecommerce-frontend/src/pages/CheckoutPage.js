@@ -141,7 +141,7 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
     zipCode: '',
     country: 'Việt Nam',
     shippingMethod: 'standard',
-    paymentMethod: 'momo_qr',
+    paymentMethod: 'vnpay',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -298,7 +298,10 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
         guestItems: !user ? cartItems.map(i => ({ productId: i.id || i.productId, quantity: i.quantity })) : null
       });
 
-      if (formData.paymentMethod === 'momo_qr') {
+      if (formData.paymentMethod === 'vnpay') {
+        const vnpayRes = await paymentsApi.createVnPayPayment(res.data.id);
+        window.location.href = vnpayRes.data.payUrl;
+      } else if (formData.paymentMethod === 'momo_qr') {
         // Redirect to MoMo payment page (QR Code)
         const momoRes = await paymentsApi.createMomoPayment(res.data.id, 'captureWallet');
         window.location.href = momoRes.data.payUrl;
@@ -488,6 +491,7 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
                 <div className="space-y-4">
                   <div className="space-y-3">
                     {[
+                      { id: 'vnpay', label: '🏦 Thanh toán qua Ngân hàng (VNPay - ATM/Visa/MasterCard)' },
                       { id: 'momo_qr', label: '📱 Ví điện tử MoMo (Quét mã QR)' },
                       { id: 'momo_atm', label: '💳 Thẻ ATM Nội Địa (Qua cổng MoMo)' },
                       { id: 'cod', label: '💵 Thanh toán khi nhận hàng (COD)' }
@@ -503,6 +507,13 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
                     <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
                       <p className="text-green-800 font-medium">💵 Thanh toán khi nhận hàng (COD)</p>
                       <p className="text-green-600 text-sm mt-1">Bạn sẽ thanh toán bằng tiền mặt khi shipper giao hàng tới.</p>
+                    </div>
+                  )}
+
+                  {formData.paymentMethod === 'vnpay' && (
+                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                      <p className="text-blue-800 font-medium">🏦 Thanh toán qua VNPay</p>
+                      <p className="text-blue-600 text-sm mt-1">Bạn sẽ được chuyển hướng sang cổng thanh toán VNPay để chọn ngân hàng và nhập thông tin thẻ.</p>
                     </div>
                   )}
 
