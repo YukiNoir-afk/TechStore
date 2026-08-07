@@ -103,7 +103,7 @@ public class OrderService
             UserId = userId, Status = "Đang xử lý", Subtotal = subtotal, Tax = tax,
             DiscountAmount = discountAmount, PromoCodeId = promoCodeId,
             ShippingCost = shipping, Total = total,
-            ShippingName = $"{request.FirstName} {request.LastName}", ShippingAddress = request.Address,
+            ShippingName = $"{request.FirstName} {request.LastName}", ShippingPhone = request.Phone, ShippingAddress = request.Address,
             ShippingCity = request.City, ShippingState = request.State, ShippingZipCode = request.ZipCode,
             ShippingCountry = request.Country, ShippingEmail = request.Email, ShippingMethod = request.ShippingMethod,
             PaymentMethod = request.PaymentMethod, PaymentStatus = paymentStatus,
@@ -304,27 +304,82 @@ public class OrderService
         };
     }
 
+    /// <summary>Get order detail without userId filter — used for public lookup (phone-verified)</summary>
+    public async Task<OrderDetailDto?> GetOrderDetailPublic(string orderId)
+    {
+        var o = await _db.Orders.Find(x => x.Id == orderId).FirstOrDefaultAsync();
+        if (o == null) return null;
+
+        return new OrderDetailDto
+        {
+            Id = o.Id, Status = o.Status, Subtotal = o.Subtotal, DiscountAmount = o.DiscountAmount, Tax = o.Tax,
+            ShippingCost = o.ShippingCost, Total = o.Total, Date = o.CreatedAt,
+            Items = o.Items.Select(i => new OrderItemDto
+            {
+                Id = i.ProductId, Name = i.ProductName, Image = i.ProductImage, Quantity = i.Quantity, Price = i.Price
+            }).ToList(),
+            Shipping = new ShippingInfoDto
+            {
+                Name = o.ShippingName ?? "", Address = $"{o.ShippingAddress}, {o.ShippingCity}, {o.ShippingState} {o.ShippingZipCode}, {o.ShippingCountry}",
+                Phone = o.ShippingPhone, Email = o.ShippingEmail,
+                Method = GetShippingMethodLabel(o.ShippingMethod)
+            },
+            Tracking = o.TrackingNumber != null ? new TrackingInfoDto
+            {
+                Number = o.TrackingNumber, Carrier = o.Carrier, Status = o.Status,
+                EstimatedDelivery = o.EstimatedDelivery,
+                Events = o.StatusHistory.OrderByDescending(h => h.CreatedAt).Select(h => new TrackingEventDto
+                {
+                    Date = h.CreatedAt, Location = h.Location, Status = h.Status, Description = h.Description
+                }).ToList()
+            } : null
+        };
+    }
+
     public async Task<object> GetOrderHistoryByPhone(string phone)
     {
         var normalizedPhone = phone.Replace(" ", "").Replace("-", "");
 
-        // MongoDB LINQ doesn't support String.Replace(), so use regex to find candidates then filter in memory
-        var regex = new MongoDB.Bson.BsonRegularExpression(normalizedPhone);
+        // 1) Find registered user by phone
         var users = await _db.Users.Find(u => u.Phone != null).ToListAsync();
-        var user = users.FirstOrDefault(u => u.Phone != null && u.Phone.Replace(" ", "").Replace("-", "") == normalizedPhone)
-            ?? throw new KeyNotFoundException("Không tìm thấy khách hàng với số điện thoại này");
+        var user = users.FirstOrDefault(u => u.Phone != null && u.Phone.Replace(" ", "").Replace("-", "") == normalizedPhone);
 
-        var orders = await _db.Orders.Find(o => o.UserId == user.Id)
-            .Sort(Builders<Order>.Sort.Descending(o => o.CreatedAt))
-            .ToListAsync();
+        // 2) Get orders from registered user
+        List<Order> userOrders = new();
+        if (user != null)
+        {
+            userOrders = await _db.Orders.Find(o => o.UserId == user.Id)
+                .Sort(Builders<Order>.Sort.Descending(o => o.CreatedAt))
+                .ToListAsync();
+        }
+
+        // 3) Get guest orders by ShippingPhone (UserId == null)
+        var allGuestOrders = await _db.Orders.Find(o => o.UserId == null && o.ShippingPhone != null).ToListAsync();
+        var guestOrders = allGuestOrders
+            .Where(o => o.ShippingPhone!.Replace(" ", "").Replace("-", "") == normalizedPhone)
+            .OrderByDescending(o => o.CreatedAt)
+            .ToList();
+
+        // 4) Merge and deduplicate
+        var allOrders = userOrders.Concat(guestOrders)
+            .GroupBy(o => o.Id).Select(g => g.First())
+            .OrderByDescending(o => o.CreatedAt)
+            .ToList();
+
+        if (!allOrders.Any())
+            throw new KeyNotFoundException("Không tìm thấy đơn hàng nào với số điện thoại này");
+
+        var customerName = user != null
+            ? $"{user.FirstName} {user.LastName}"
+            : allOrders.First().ShippingName ?? "Khách vãng lai";
 
         return new
         {
-            customerName = $"{user.FirstName} {user.LastName}",
-            phone = user.Phone,
-            totalOrders = orders.Count,
-            totalSpent = orders.Where(o => o.Status != "Đã hủy" && o.Status != "Cancelled").Sum(o => o.Total),
-            orders = orders.Select(o => new
+            customerName,
+            phone = user?.Phone ?? normalizedPhone,
+            totalOrders = allOrders.Count,
+            totalSpent = allOrders.Where(o => o.Status != "Đã hủy" && o.Status != "Cancelled").Sum(o => o.Total),
+            orders = allOrders.Select(o => new
             {
                 id = o.Id,
                 status = o.Status,

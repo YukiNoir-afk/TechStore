@@ -59,6 +59,7 @@ export const ordersApi = {
   cancel: (id) => api.put(`/orders/${id}/cancel`),
   cancelPaymentOrder: (id) => api.post(`/orders/${id}/cancel-payment`),
   lookupByPhone: (phone) => api.get('/orders/lookup-by-phone', { params: { phone } }),
+  lookup: (phone, orderId) => api.get('/orders/lookup', { params: { phone, orderId } }),
 };
 
 // Wishlist API

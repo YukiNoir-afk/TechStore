@@ -135,6 +135,7 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
     email: user?.email || '',
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
+    phone: user?.phone || '',
     address: '',
     city: '',
     state: '',
@@ -285,6 +286,7 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
         email: formData.email,
         firstName: formData.firstName,
         lastName: formData.lastName,
+        phone: formData.phone,
         address: formData.address,
         city: formData.city,
         state: formData.state,
@@ -365,8 +367,8 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
                 <h2 className="text-2xl font-bold font-heading text-text-primary mb-6">Địa chỉ giao hàng</h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-text-primary mb-2">Địa chỉ email</label>
-                    <input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full border-2 border-primary-200 rounded-lg px-4 py-2 focus:outline-none focus:border-primary-500" />
+                    <label className="block text-sm font-medium text-text-primary mb-2">Địa chỉ email <span className="text-red-500">*</span></label>
+                    <input type="email" name="email" value={formData.email} onChange={handleInputChange} placeholder="VD: ten@email.com" className="w-full border-2 border-primary-200 rounded-lg px-4 py-2 focus:outline-none focus:border-primary-500" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -377,6 +379,11 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
                       <label className="block text-sm font-medium text-text-primary mb-2">Họ</label>
                       <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} className="w-full border-2 border-primary-200 rounded-lg px-4 py-2 focus:outline-none focus:border-primary-500" />
                     </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary mb-2">Số điện thoại <span className="text-red-500">*</span></label>
+                    <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} placeholder="VD: 0912345678" className="w-full border-2 border-primary-200 rounded-lg px-4 py-2 focus:outline-none focus:border-primary-500" />
+                    <p className="text-xs text-text-secondary mt-1">Dùng để liên hệ giao hàng và tra cứu đơn hàng</p>
                   </div>
 
                   {/* Saved Addresses Selector */}
@@ -563,6 +570,21 @@ const CheckoutPageInner = ({ cartItems, user, onOrderPlaced, stripePromise, isSt
               {/* Show Next only on steps 1 and 2 */}
               {step < 3 && (
                 <Button variant="primary" size="lg" onClick={() => {
+                  if (step === 1) {
+                    // Validate required fields before going to step 2
+                    const missing = [];
+                    if (!formData.email.trim()) missing.push('Email');
+                    if (!formData.firstName.trim()) missing.push('Tên');
+                    if (!formData.lastName.trim()) missing.push('Họ');
+                    if (!formData.phone.trim()) missing.push('Số điện thoại');
+                    if (!formData.address.trim()) missing.push('Địa chỉ');
+                    if (!formData.city.trim()) missing.push('Thành phố');
+                    if (missing.length > 0) {
+                      setError(`Vui lòng nhập: ${missing.join(', ')}`);
+                      return;
+                    }
+                    setError('');
+                  }
                   setStep(step === 2 ? 3 : 2);
                 }}>
                   {step === 2 ? 'Kiểm tra đơn hàng →' : 'Tiếp theo →'}

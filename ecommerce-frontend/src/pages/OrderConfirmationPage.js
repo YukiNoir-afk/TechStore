@@ -5,7 +5,7 @@ import Spinner from '../components/Spinner';
 import { ordersApi } from '../utils/api';
 import { formatPrice } from '../utils/formatPrice';
 
-const OrderConfirmationPage = () => {
+const OrderConfirmationPage = ({ user }) => {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -76,8 +76,14 @@ const OrderConfirmationPage = () => {
           )}
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to={`/order-tracking/${id}`}><Button size="lg" variant="primary">Theo dõi đơn hàng</Button></Link>
-            <Link to="/orders"><Button size="lg" variant="outline">Xem tất cả đơn hàng</Button></Link>
+            {user ? (
+              <>
+                <Link to={`/order-tracking/${id}`}><Button size="lg" variant="primary">Theo dõi đơn hàng</Button></Link>
+                <Link to="/orders"><Button size="lg" variant="outline">Xem tất cả đơn hàng</Button></Link>
+              </>
+            ) : (
+              <Link to="/order-lookup"><Button size="lg" variant="primary">Tra cứu đơn hàng</Button></Link>
+            )}
             <Link to="/products"><Button size="lg" variant="secondary">Tiếp tục mua sắm</Button></Link>
           </div>
         </div>

@@ -44,11 +44,20 @@ public class OrdersController : ControllerBase
         if (string.IsNullOrWhiteSpace(phone) || string.IsNullOrWhiteSpace(orderId))
             return BadRequest(new { error = "Vui lòng nhập số điện thoại và mã đơn hàng" });
 
-        var order = await _orders.GetOrderDetail(null, orderId);
-        if (order == null || order.Shipping?.Phone?.Replace(" ", "") != phone.Replace(" ", ""))
+        // Search the raw order first (no userId filter) to find any order with this ID
+        var rawOrder = await _orders.GetOrderByIdRaw(orderId);
+        if (rawOrder == null)
             return NotFound(new { error = "Không tìm thấy đơn hàng" });
 
-        return Ok(order);
+        // Verify phone matches ShippingPhone
+        var normalizedPhone = phone.Replace(" ", "").Replace("-", "");
+        var orderPhone = rawOrder.ShippingPhone?.Replace(" ", "").Replace("-", "");
+        if (string.IsNullOrEmpty(orderPhone) || orderPhone != normalizedPhone)
+            return NotFound(new { error = "Không tìm thấy đơn hàng" });
+
+        // Return full order detail
+        var order = await _orders.GetOrderDetailPublic(orderId);
+        return order != null ? Ok(order) : NotFound(new { error = "Không tìm thấy đơn hàng" });
     }
 
     [HttpGet("lookup-by-phone"), AllowAnonymous]
