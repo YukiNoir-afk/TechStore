@@ -133,4 +133,12 @@ app.MapGet("/", () => Results.Ok(new
     }
 }));
 
-app.Run();
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
+{
+    app.Run($"http://*:{port}");
+}
+else
+{
+    app.Run();
+}
